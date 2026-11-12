@@ -1,0 +1,89 @@
+/* Base styles. Full design tokens (spacing/type scales, breakpoints) come with the UI polish work. */
+:root {
+  --color-bg: #11131f;
+  --color-surface: #1a1d2e;
+  --color-border: #2a2e45;
+  --color-text: #e8eaf2;
+  --color-text-muted: #9aa0b8;
+  --color-coral: #ff5a3c;
+  --color-cyan: #3dd5e0;
+  --font-ui: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  line-height: 1.5;
+}
+
+a {
+  color: var(--color-cyan);
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-logo {
+  color: var(--color-text);
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.app-logo__accent {
+  color: var(--color-coral);
+}
+
+.app-header__room {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.room-code {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--color-cyan);
+  letter-spacing: 0.1em;
+}
+
+.app-main {
+  flex: 1;
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.app-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
