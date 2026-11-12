@@ -1,7 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../api/ApiProvider';
 import { MAX_PLAYERS } from '../api/types';
+import { Banner } from '../components/Banner';
+import { Button } from '../components/Button';
+import { ErrorState } from '../components/ErrorState';
+import { LoadingState } from '../components/Spinner';
 import { useMutation } from '../hooks/useMutation';
 import { useRoom } from '../hooks/useRoom';
 import { normalizeCode } from '../lib/validation';
@@ -18,6 +22,8 @@ export function LobbyPage() {
   const start = useMutation(() => api.startGame(code, mySeat!.playerToken));
   const leave = useMutation(() => api.leaveRoom(code, mySeat!.playerToken));
   const [copied, setCopied] = useState(false);
+  // Set when this player chooses to go home, so the no-seat redirect below doesn't race navigate('/').
+  const leavingRef = useRef(false);
 
   const started = room?.status === 'in_progress';
   useEffect(() => {
@@ -25,9 +31,10 @@ export function LobbyPage() {
   }, [started, code, navigate]);
 
   // No seat for this room in this tab: send them to Join with the code filled in.
-  if (!mySeat) return <Navigate to={`/?code=${encodeURIComponent(code)}`} replace />;
+  if (!mySeat) return leavingRef.current ? null : <Navigate to={`/?code=${encodeURIComponent(code)}`} replace />;
 
   function forgetRoom() {
+    leavingRef.current = true;
     clearSeat();
     navigate('/');
   }
@@ -53,32 +60,19 @@ export function LobbyPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <p className="status" role="status">
-        Loading room…
-      </p>
-    );
-  }
+  if (loading) return <LoadingState label="Loading room…" />;
 
   // Terminal errors (expired, gone, seat invalid) replace the lobby even if one loaded before.
   // Without a room, the only other way here is a temporary error on the first fetch.
   const terminal = error?.isTerminal ?? false;
   if (!room || terminal) {
     return (
-      <section className="status" role="alert">
-        <h1>Can’t open this room</h1>
-        <p>{error?.message}</p>
-        {terminal ? (
-          <button type="button" className="button button--primary" onClick={forgetRoom}>
-            Back to home
-          </button>
-        ) : (
-          <button type="button" className="button button--primary" onClick={retry}>
-            Try again
-          </button>
-        )}
-      </section>
+      <ErrorState
+        title="Can’t open this room"
+        message={error?.message ?? ''}
+        actionLabel={terminal ? 'Back to home' : 'Try again'}
+        onAction={terminal ? forgetRoom : retry}
+      />
     );
   }
 
@@ -90,19 +84,16 @@ export function LobbyPage() {
 
   return (
     <div className="lobby">
-      {stale && (
-        <p className="banner" role="status">
-          Connection lost. Showing the last known lobby while we reconnect…
-        </p>
-      )}
+      {stale && <Banner>Connection lost. Showing the last known lobby while we reconnect…</Banner>}
+
       <section className="lobby__code" aria-labelledby="room-code-label">
         <p id="room-code-label" className="lobby__code-label">
           Room code
         </p>
         <p className="lobby__code-value room-code">{code}</p>
-        <button type="button" className="button button--ghost" onClick={handleCopy}>
+        <Button variant="ghost" onClick={handleCopy}>
           {copied ? 'Copied!' : 'Copy code'}
-        </button>
+        </Button>
         <p className="field__hint">Share this code with the other players.</p>
       </section>
 
@@ -135,15 +126,15 @@ export function LobbyPage() {
       <section className="lobby__actions">
         {isHost ? (
           <>
-            <button
-              type="button"
-              className="button button--primary"
+            <Button
+              loading={start.pending}
+              loadingText="Starting…"
               disabled={!isFull || actionPending}
               aria-describedby="start-hint"
               onClick={handleStart}
             >
-              {start.pending ? 'Starting…' : 'Start game'}
-            </button>
+              Start game
+            </Button>
             <p id="start-hint" className="field__hint">
               {isFull ? 'Everyone’s here. Start when ready.' : `Need ${MAX_PLAYERS - count} more to start.`}
             </p>
@@ -157,9 +148,9 @@ export function LobbyPage() {
           </p>
         )}
 
-        <button type="button" className="button button--ghost" disabled={actionPending} onClick={handleLeave}>
-          {leave.pending ? 'Leaving…' : 'Leave room'}
-        </button>
+        <Button variant="ghost" loading={leave.pending} loadingText="Leaving…" disabled={actionPending} onClick={handleLeave}>
+          Leave room
+        </Button>
         {leave.error && (
           <p className="form-error" role="alert">
             {leave.error.message}
