@@ -8,6 +8,9 @@ import { ResultPage } from './pages/ResultPage';
 import { RolePage } from './pages/RolePage';
 import { VotePage } from './pages/VotePage';
 
+/** Opt into React Router v7 behavior now (silences upgrade warnings). Used by main.tsx and tests. */
+export const ROUTER_FUTURE = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
+
 /** Route table only; providers and the router are set up in main.tsx (and by tests). */
 export function App() {
   return (

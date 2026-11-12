@@ -3,6 +3,8 @@ import type { FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApi } from '../api/ApiProvider';
 import type { JoinResult } from '../api/types';
+import { Button } from '../components/Button';
+import { TextField } from '../components/TextField';
 import { useMutation } from '../hooks/useMutation';
 import { normalizeCode, normalizeName, validateCode, validateName } from '../lib/validation';
 import { useSession } from '../session/SessionProvider';
@@ -66,37 +68,26 @@ export function HomePage() {
         <p>Four players, one room code. Create a room and share the code, or join a friend’s room.</p>
       </section>
 
-      <div className="field">
-        <label htmlFor="player-name">Your name</label>
-        <input
-          id="player-name"
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            setNameError(null);
-          }}
-          autoComplete="nickname"
-          aria-invalid={nameError ? true : undefined}
-          aria-describedby={nameError ? 'player-name-error' : 'player-name-hint'}
-        />
-        {nameError ? (
-          <p id="player-name-error" className="field__error" role="alert">
-            {nameError}
-          </p>
-        ) : (
-          <p id="player-name-hint" className="field__hint">
-            2–16 letters, numbers, spaces, - or _
-          </p>
-        )}
-      </div>
+      <TextField
+        id="player-name"
+        label="Your name"
+        hint="2–16 letters, numbers, spaces, - or _"
+        error={nameError}
+        value={name}
+        onChange={(e) => {
+          setName(e.target.value);
+          setNameError(null);
+        }}
+        autoComplete="nickname"
+      />
 
       <div className="home__actions">
         <form className="card" onSubmit={handleCreate} aria-labelledby="create-heading" noValidate>
           <h2 id="create-heading">Create a room</h2>
           <p className="card__text">Start a new room and become the host.</p>
-          <button type="submit" className="button button--primary" disabled={pending}>
-            {create.pending ? 'Creating…' : 'Create room'}
-          </button>
+          <Button type="submit" loading={create.pending} loadingText="Creating…" disabled={pending}>
+            Create room
+          </Button>
           {create.error && (
             <p className="form-error" role="alert">
               {create.error.message}
@@ -106,33 +97,25 @@ export function HomePage() {
 
         <form className="card" onSubmit={handleJoin} aria-labelledby="join-heading" noValidate>
           <h2 id="join-heading">Join a room</h2>
-          <div className="field">
-            <label htmlFor="room-code">Room code</label>
-            <input
-              id="room-code"
-              className="input--code"
-              value={code}
-              onChange={(e) => {
-                setCode(normalizeCode(e.target.value));
-                setCodeError(null);
-                join.reset();
-              }}
-              placeholder="ABC234"
-              autoComplete="off"
-              autoCapitalize="characters"
-              spellCheck={false}
-              aria-invalid={codeError ? true : undefined}
-              aria-describedby={codeError ? 'room-code-error' : undefined}
-            />
-            {codeError && (
-              <p id="room-code-error" className="field__error" role="alert">
-                {codeError}
-              </p>
-            )}
-          </div>
-          <button type="submit" className="button button--secondary" disabled={pending}>
-            {join.pending ? 'Joining…' : 'Join room'}
-          </button>
+          <TextField
+            id="room-code"
+            label="Room code"
+            className="field__input--code"
+            error={codeError}
+            value={code}
+            onChange={(e) => {
+              setCode(normalizeCode(e.target.value));
+              setCodeError(null);
+              join.reset();
+            }}
+            placeholder="ABC234"
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+          />
+          <Button type="submit" variant="secondary" loading={join.pending} loadingText="Joining…" disabled={pending}>
+            Join room
+          </Button>
           {join.error && (
             <p className="form-error" role="alert">
               {join.error.message}
