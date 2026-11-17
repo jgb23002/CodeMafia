@@ -1,0 +1,86 @@
+[
+  {
+    "title": "Phase 1: Architecture and shared API contracts",
+    "number": 5,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/5",
+    "owner": "Jiya Gorasiya",
+    "assignee": "jgb23002"
+  },
+  {
+    "title": "Phase 1: Session endpoints and transaction guarantees",
+    "number": 6,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/6",
+    "owner": "Jiya Gorasiya",
+    "assignee": "jgb23002"
+  },
+  {
+    "title": "Phase 1: GitHub leadership and QA setup",
+    "number": 7,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/7",
+    "owner": "Jiya Gorasiya",
+    "assignee": "jgb23002"
+  },
+  {
+    "title": "Phase 1: Frontend foundation",
+    "number": 8,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/8",
+    "owner": "Priyanshi Sitlani",
+    "assignee": "pr1yanshii"
+  },
+  {
+    "title": "Phase 1: Create and join lobby UI",
+    "number": 9,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/9",
+    "owner": "Priyanshi Sitlani",
+    "assignee": "pr1yanshii"
+  },
+  {
+    "title": "Phase 1: Responsive frontend QA and unit tests",
+    "number": 10,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/10",
+    "owner": "Priyanshi Sitlani",
+    "assignee": "pr1yanshii"
+  },
+  {
+    "title": "Phase 1: PostgreSQL schema and migrations",
+    "number": 11,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/11",
+    "owner": "Gabriella Luciani",
+    "assignee": "gel22008"
+  },
+  {
+    "title": "Phase 1: Ten deterministic challenge seeds",
+    "number": 12,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/12",
+    "owner": "Gabriella Luciani",
+    "assignee": "gel22008"
+  },
+  {
+    "title": "Phase 1: Database tests and persistent match records",
+    "number": 13,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/13",
+    "owner": "Gabriella Luciani",
+    "assignee": "gel22008"
+  },
+  {
+    "title": "Phase 1: FastAPI backend foundation",
+    "number": 14,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/14",
+    "owner": "Michael Garcia",
+    "assignee": "MEG22019"
+  },
+  {
+    "title": "Phase 1: Frontend and backend CI with environments",
+    "number": 15,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/15",
+    "owner": "Michael Garcia",
+    "assignee": "MEG22019"
+  },
+  {
+    "title": "Phase 1: Verified deployment path and blockers",
+    "number": 16,
+    "url": "https://github.com/jgb23002/CodeMafia/issues/16",
+    "owner": "Michael Garcia",
+    "assignee": "MEG22019"
+  }
+]

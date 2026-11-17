@@ -8,6 +8,8 @@ __pycache__/
 node_modules/
 dist/
 coverage/
+test-results/
+playwright-report/
 
 # Environment
 .env
@@ -17,3 +19,15 @@ coverage/
 # Editors and OS
 .DS_Store
 .vscode/
+
+# Additional Python environments and test/tool output
+venv/
+.venv-*/
+*.pyo
+*.egg-info/
+.coverage
+.coverage.*
+htmlcov/
+pytest-report.xml
+.ruff_cache/
+.mypy_cache/

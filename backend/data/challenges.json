@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "challenges": [
+    {"id":"CM01","kind":"CODING","round":1,"prompt":"What integer does sum(n for n in [1, 2, 3, 4, 5, 6] if n % 2 == 0) return? Submit the integer only.","answer_key":{"accepted":["12"]}},
+    {"id":"CM02","kind":"ESCAPE","round":1,"prompt":"A Caesar cipher shifted each original letter forward by 3. Decode KHOOR. Submit five uppercase letters.","answer_key":{"accepted":["HELLO"]}},
+    {"id":"CM03","kind":"CODING","round":2,"prompt":"What integer does len(set([2, 2, 3, 5, 5])) return? Submit the integer only.","answer_key":{"accepted":["3"]}},
+    {"id":"CM04","kind":"ESCAPE","round":2,"prompt":"The lock sequence follows n*(n+1) for consecutive positive integers: 2, 6, 12, 20, 30. What comes next? Submit the integer only.","answer_key":{"accepted":["42"]}},
+    {"id":"CM05","kind":"CODING","round":3,"prompt":"Convert the binary integer 101101 to decimal. Submit the decimal integer only.","answer_key":{"accepted":["45"]}},
+    {"id":"CM06","kind":"ESCAPE","round":3,"prompt":"Use each digit 2, 4, 6 exactly once. The hundreds digit is the smallest, the tens digit is the largest, and the ones digit is the remaining digit. Submit the three-digit door code.","answer_key":{"accepted":["264"]}},
+    {"id":"CM07","kind":"CODING","round":4,"prompt":"Start with x = 1. Repeat x = x * 2 exactly four times. What is x? Submit the integer only.","answer_key":{"accepted":["16"]}},
+    {"id":"CM08","kind":"ESCAPE","round":4,"prompt":"The mirror lock reverses character order without changing letter case. Reverse A7K2. Submit four characters.","answer_key":{"accepted":["2K7A"]}},
+    {"id":"CM09","kind":"CODING","round":5,"prompt":"Sort the unique values of [4, 1, 4, 2] in ascending order. Submit comma-separated integers with no spaces or brackets.","answer_key":{"accepted":["1,2,4"]}},
+    {"id":"CM10","kind":"ESCAPE","round":5,"prompt":"Only the box whose label is true holds the key. RED: 2+2=5. BLUE: 3*3=9. GREEN: 8<3. Submit the box color in uppercase.","answer_key":{"accepted":["BLUE"]}}
+  ]
+}
