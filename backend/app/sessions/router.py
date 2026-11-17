@@ -1,4 +1,4 @@
-"""Router factory only. Michael owns the FastAPI application and shared handlers."""
+"""Session routes mounted by the shared FastAPI application factory."""
 
 import logging
 from collections.abc import Callable
@@ -6,24 +6,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from starlette.exceptions import HTTPException
+
+from backend.app.errors import error_response
 
 from .schemas import Lobby, PlayerInput, Registration, StartedGame, StartInput
 from .service import SessionError, SessionService
 
 logger = logging.getLogger(__name__)
-
-
-def error_response(status: int, code: str, message: str, *, details=None, headers=None):
-    return JSONResponse(
-        status_code=status,
-        headers=headers,
-        content={
-            "error": {"code": code, "message": message, "details": details or {}},
-        },
-    )
 
 
 class SessionRoute(APIRoute):

@@ -1,5 +1,2 @@
-# Feature-test dependencies only. Michael owns production dependency management.
-fastapi>=0.115,<1
-pydantic>=2.9,<3
-pytest>=8,<10
-httpx>=0.27,<1
+# Compatibility entry point; the shared manifest also installs the real adapter.
+-r ../requirements-dev.txt

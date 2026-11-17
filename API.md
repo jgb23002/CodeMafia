@@ -2,11 +2,12 @@
 
 ## Status, conventions, and types
 
-Week 11 implements only the four **IMPLEMENTED COMPONENT** session endpoints
-below. They are mountable routes, not a running production application. All other
-endpoints are **PLANNED**. The production app/repository adapter is pending.
-Transport shapes are the stable session integration target; policy details not
-supplied in the proposal remain **PROPOSED** for team approval.
+Phase 1 runs the four **IMPLEMENTED** session endpoints below in
+`backend.app.main:create_app`, backed by PostgreSQL. `GET /health` returns
+`{"status":"ok","database":"ok","schema_version":1}` after an actual SQL query,
+or a safe 503 error when the database/schema is unavailable. Other endpoints
+remain **PLANNED** for later gameplay phases. Complete candidate policies are in
+[DECISIONS.md](docs/DECISIONS.md); agreement from all four members is pending.
 
 Base path `/api`; JSON bodies; opaque UUID strings for IDs; UTC ISO 8601 timestamps
 for future timestamp fields. Use HTTPS outside local development. Clients send
@@ -16,7 +17,8 @@ Frontend types must follow the response shape, not infer private database fields
 
 | Type | Representation |
 |---|---|
-| Session/player/challenge ID | UUID string |
+| Session/player ID | UUID string |
+| Challenge ID | Stable server string CM01 through CM10 |
 | RoomCode | **PROPOSED** six ASCII uppercase letters/digits; generated alphabet excludes I, O, 0, 1 |
 | PlayerToken | 43 URL-safe characters encoding 32 random bytes; private, returned once |
 | DisplayName | **PROPOSED** trimmed Unicode text, 1–40 characters, no control/format characters |
@@ -26,9 +28,10 @@ Frontend types must follow the response shape, not infer private database fields
 | Winner | **PROPOSED** NON_MAFIA, MAFIA, or null before completion |
 
 Registration names are non-unique labels; identities are unique UUID/token pairs.
-Registration POST retries create new identities; reconnect/idempotency policy is
-pending. A browser that retains its token should read its lobby rather than join
-again automatically. No player-token lifetime/rotation is finalized.
+Registration POST retries create new identities and are never retried automatically.
+The frontend retains the seat/token in this tab's sessionStorage; refresh reads
+the lobby without joining again. Closing the tab loses that seat; there is no
+seat-transfer, leave, rotation, or automatic token-expiry endpoint in Phase 1.
 
 Session bodies reject unknown fields, wrong types, missing required fields, and
 invalid names. Room codes are case sensitive; no silent lowercase conversion.
@@ -52,16 +55,18 @@ raw tokens, private roles, and answer keys must not appear in errors.
 | 403 | NOT_ROOM_MEMBER, HOST_ONLY | Cross-room access or non-host start |
 | 404 | ROOM_NOT_FOUND | Validly formatted room code not found |
 | 409 | ROOM_FULL, GAME_ALREADY_STARTED, FOUR_PLAYERS_REQUIRED, INACTIVE_PLAYERS, ROLES_ALREADY_ASSIGNED, STATE_CONFLICT | Capacity or lifecycle conflict |
+| 413 | REQUEST_TOO_LARGE | Body exceeds the configured limit, including streamed bodies |
 | 422 | INVALID_REQUEST, INVALID_ROOM_CODE | Invalid body or code format |
 | 500 | ROOM_CREATION_FAILED, IDENTITY_CREATION_FAILED, PERSISTENCE_ERROR, INTERNAL_ERROR | Retry budget exhausted, persistence failure, or unexpected failure |
+| 503 | SERVICE_UNAVAILABLE | Health query or required schema is unavailable |
 
 Planned gameplay errors use the same envelope with **PROPOSED** codes such as
 WRONG_PHASE, PLAYER_ELIMINATED, DUPLICATE_VOTE, CHALLENGE_NOT_FOUND,
 CHALLENGE_RESOLVED, SABOTAGE_LIMIT, INVALID_ANSWER, and GAME_NOT_OVER.
 400 is reserved for malformed HTTP/protocol requests; session body parsing uses
-HTTP_ERROR and Michael's shared middleware should preserve the same envelope.
+HTTP_ERROR; the shared application also uses safe envelopes for 404/405/500.
 
-## 1. Create room — IMPLEMENTED COMPONENT
+## 1. Create room — IMPLEMENTED
 
 `POST /api/sessions` — public. Body:
 
@@ -89,7 +94,7 @@ IDs/code/token strings; `is_host` boolean; `phase` literal WAITING;
 unique index arbitrates code conflicts; the service retries bounded candidates.
 Errors: 422 INVALID_REQUEST; 500 ROOM_CREATION_FAILED/PERSISTENCE_ERROR/INTERNAL_ERROR.
 
-## 2. Join room — IMPLEMENTED COMPONENT
+## 2. Join room — IMPLEMENTED
 
 `POST /api/sessions/{code}/join` — public registration, not reconnect. Body:
 
@@ -119,7 +124,7 @@ Errors: 422 input/code; 404 ROOM_NOT_FOUND; 409 ROOM_FULL/GAME_ALREADY_STARTED;
 500 IDENTITY_CREATION_FAILED/PERSISTENCE_ERROR/INTERNAL_ERROR. A full or started
 room never creates a partial player. Duplicate display names alone are permitted.
 
-## 3. Lobby — IMPLEMENTED COMPONENT
+## 3. Lobby — IMPLEMENTED
 
 `GET /api/sessions/{code}` — valid member token. No body. 200 response:
 
@@ -142,7 +147,7 @@ works after start but never reveals roles, even at GAME_OVER; results have a
 separate planned reveal contract. Errors: 401, 403 NOT_ROOM_MEMBER, 404, 422, 500.
 Invalid credentials are rejected before looking up room existence.
 
-## 4. Start — IMPLEMENTED COMPONENT
+## 4. Start — IMPLEMENTED
 
 `POST /api/sessions/{code}/start` — host's valid member token. Required body:
 
@@ -179,7 +184,7 @@ Errors: 401; 403 NOT_ROOM_MEMBER/HOST_ONLY; 404; 409 as listed; 422; 500.
     {"player_id":"66666666-6666-4666-8666-666666666666","display_name":"Michael","is_active":true}
   ],
   "solved_count":0,"escape_target":8,
-  "challenges":[{"challenge_id":"33333333-3333-4333-8333-333333333333","type":"CODING","prompt":"Predict the output...","status":"OPEN"}],
+  "challenges":[{"challenge_id":"CM01","type":"CODING","prompt":"Predict the output...","status":"OPEN"}],
   "winner":null
 }
 ```
@@ -197,19 +202,20 @@ aggregation with Gabriella's challenge/progress data and Jiya's session boundary
 `POST /api/sessions/{code}/answers` — active authenticated member, CHALLENGE phase.
 
 ```json
-{"challenge_id":"33333333-3333-4333-8333-333333333333","answer":"42"}
+{"challenge_id":"CM01","answer":"12"}
 ```
 
 200 **PROPOSED** response:
 
 ```json
-{"challenge_id":"33333333-3333-4333-8333-333333333333","correct":true,"solved_count":3,"phase":"CHALLENGE","winner":null}
+{"challenge_id":"CM01","correct":true,"solved_count":3,"phase":"CHALLENGE","winner":null}
 ```
 
-Answer is a string (size/normalization/retries PROPOSED); correctness boolean;
+Candidate answer policy: a string of 1–2000 characters, outer whitespace trimmed,
+case-sensitive; at most three attempts per player/challenge/round. Correctness is boolean;
 count integer 0–10. Server verifies membership, active state, phase, challenge
 ownership/availability and answer. A unique completion changes progress at most
-once. Wrong answers impose the approved time penalty. Check eight unique solves
+once. Wrong answers subtract 15 seconds from the shared challenge deadline, floored at now. Check eight unique solves
 and terminate immediately when eligible. Errors: 401/403; 404 CHALLENGE_NOT_FOUND;
 409 WRONG_PHASE/CHALLENGE_RESOLVED; 422 INVALID_ANSWER/input; 500. No answer-key echo.
 Gabriella owns answer validation/progress; timing policy requires team approval.
@@ -232,7 +238,8 @@ Server verifies eligible candidate and enforces proposed one accepted vote per
 voter/round using uniqueness. Rounds 1–2 cannot eliminate; rounds 3–5 require
 `floor(all_active_players/2)+1` votes for one candidate. Ties/insufficient votes
 produce no elimination. Proposed resolution occurs at ROUND_RESULTS. Do not
-expose private votes. Abstention/self-voting/replacements are pending.
+expose private votes. Missing votes are abstentions at the deadline; self-votes and
+replacements are rejected. Full candidate policy is in docs/DECISIONS.md.
 Errors: 401; 403 PLAYER_ELIMINATED/member; 404 candidate/room; 409 WRONG_PHASE,
 DUPLICATE_VOTE or ineligible candidate; 422; 500. Gameplay owner allocation pending.
 
@@ -251,7 +258,9 @@ DUPLICATE_VOTE or ineligible candidate; 422; 500. Gameplay owner allocation pend
 ```
 
 Proposed action enum HIDE_CLUE|REDUCE_TIME. Server atomically enforces at most
-three per match and one per round; duration/effects/pass are pending approval.
+three per match and one per round. Candidate effects: reduce the next challenge
+window by 30 seconds (minimum 15 seconds), or hide the escape prompt for its first 30 seconds.
+No action before the sabotage deadline means pass. Team sign-off is pending.
 `remaining_sabotages` integer 0–3 is private to Mafia. Do not broadcast the actor.
 Errors: 401; 403 non-Mafia/eliminated/member; 404; 409 WRONG_PHASE/SABOTAGE_LIMIT;
 422 invalid action; 500. Gameplay owner allocation pending.
@@ -259,7 +268,9 @@ Errors: 401; 403 non-Mafia/eliminated/member; 404; 409 WRONG_PHASE/SABOTAGE_LIMI
 ## 9. Phase advancement — PLANNED, PROPOSED
 
 `POST /api/sessions/{code}/advance`, empty `{}` body. Authentication required;
-caller policy (host or server-controlled), readiness and deadlines require approval.
+candidate caller policy: host only, including an eliminated host. It may request
+only a transition whose server deadline has passed. The eventual timer worker uses
+the same internal service; clients never set phase, round, or deadlines.
 
 ```json
 {"room_code":"AB7K9Q","phase":"CHALLENGE","round":1,"winner":null}
@@ -288,8 +299,7 @@ No endpoint is implemented until advancement rules and owner are approved.
 }
 ```
 
-200 proposed result object; integer scores need an approved formula (0 above is
-illustrative); reason enum ESCAPED|MAFIA_ELIMINATED|ROUND_LIMIT|MAFIA_PARITY is
+200 proposed result object; the candidate MVP keeps individual scores at zero; reason enum ESCAPED|MAFIA_ELIMINATED|ROUND_LIMIT|MAFIA_PARITY is
 proposed. Role reveal only after GAME_OVER. Errors: 401/403/404/409 GAME_NOT_OVER/500.
 Gabriella owns persistent result storage; resolution/API owner requires agreement.
 
@@ -322,7 +332,7 @@ physical names and status mappings. Michael owns the app/engine lifecycle, share
 errors, CORS, request limits, rate limiting, deployment, and CI.
 
 See [SESSION_INTEGRATION.md](docs/SESSION_INTEGRATION.md) for exact imports,
-registration, adapter operations and PostgreSQL verification gates. Tests this
-week use fake storage only. API.md and SPECIFICATION.md must both change when a
+registration, adapter operations and PostgreSQL verification gates. Both isolated unit tests and real PostgreSQL/application tests are provided.
+CI also runs frontend unit/build checks and a four-player browser integration test. API.md and SPECIFICATION.md must both change when a
 proposed rule becomes approved. Planned shapes are review targets, not completed
 implementations or authorization for additional Week 11 features.
