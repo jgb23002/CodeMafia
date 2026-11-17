@@ -20,7 +20,12 @@ starting from Phase 1 main commit 7bb206b. No change to main is part of this tas
   private role, mobile layout, refresh/hide/resume, fifth-player rejection, duplicate
   registration prevention and unauthorized-start rejection. The mobile role screen
   was also visually inspected using controlled test data.
-- Remote CI: pending branch publication; local results do not claim a remote run.
+- Remote CI: all three workflows passed on implementation commit `1d575c9`:
+  [Backend CI](https://github.com/jgb23002/CodeMafia/actions/runs/44166307108),
+  [Frontend CI](https://github.com/jgb23002/CodeMafia/actions/runs/44166307053),
+  [Integration CI](https://github.com/jgb23002/CodeMafia/actions/runs/44166307016).
+  [Branch comparison](https://github.com/jgb23002/CodeMafia/compare/main...jiya)
+  shows the Week 12 change; later documentation pushes rerun the same checks.
 
 No new database migration is needed; existing role_assignments already stores
 one immutable role per player/session. Rejoin means using the retained bearer
