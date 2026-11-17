@@ -112,4 +112,38 @@ describe('httpApi', () => {
     expect(phaseToStatus('VOTING')).toBe('in_progress');
     expect(phaseToStatus('GAME_OVER')).toBe('finished');
   });
+
+  it('fetches private state with only a bearer header and an explicit response allowlist', async () => {
+    const { api, lastCall } = setup(jsonResponse(200, {
+      room_code: 'AB7K9Q', phase: 'SABOTAGE', round: 1, my_player_id: 'p1', my_role: 'HACKER',
+      ignored_server_field: 'must-not-enter-view-state',
+    }));
+    expect(await api.getPrivateState('AB7K9Q', 'secret-token')).toEqual({
+      roomCode: 'AB7K9Q', phase: 'SABOTAGE', round: 1, myPlayerId: 'p1', myRole: 'HACKER',
+    });
+    expect(lastCall().url).toBe('http://api.test/api/sessions/AB7K9Q/state');
+    expect(lastCall().headers.Authorization).toBe('Bearer secret-token');
+    expect(lastCall().init.cache).toBe('no-store');
+    expect(lastCall().init.body).toBeUndefined();
+  });
+
+  it.each([
+    { room_code: 'OTHER2', phase: 'SABOTAGE', round: 1, my_player_id: 'p1', my_role: 'MAFIA' },
+    { room_code: 'AB7K9Q', phase: 'UNKNOWN', round: 1, my_player_id: 'p1', my_role: 'MAFIA' },
+    { room_code: 'AB7K9Q', phase: 'SABOTAGE', round: 1, my_player_id: 'p1', my_role: 'ADMIN' },
+    { room_code: 'AB7K9Q', phase: 'WAITING', round: 0, my_player_id: 'p1', my_role: 'MAFIA' },
+    { room_code: 'AB7K9Q', phase: 'SABOTAGE', round: 1, my_player_id: 'p1', my_role: null },
+    { room_code: 'AB7K9Q', phase: 'SABOTAGE', round: 0, my_player_id: 'p1', my_role: 'MAFIA' },
+  ])('rejects inconsistent private state rather than displaying it', async (wire) => {
+    const { api } = setup(jsonResponse(200, wire));
+    await expect(api.getPrivateState('AB7K9Q', 'secret-token')).rejects.toMatchObject({ code: 'UNKNOWN' });
+  });
+
+  it('can authenticate a duplicate join without putting credentials in its body or URL', async () => {
+    const { api, lastCall } = setup(jsonResponse(409, { error: { code: 'ALREADY_JOINED' } }));
+    await expect(api.joinRoom('AB7K9Q', 'Alice', 'secret-token')).rejects.toMatchObject({ code: 'ALREADY_JOINED' });
+    expect(lastCall().headers.Authorization).toBe('Bearer secret-token');
+    expect(lastCall().init.body).toBe('{"display_name":"Alice"}');
+    expect(lastCall().url).not.toContain('secret-token');
+  });
 });

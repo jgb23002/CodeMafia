@@ -49,6 +49,7 @@ describe('LobbyPage', () => {
     const api = fakeApi({
       getRoom: async () => makeRoom(4),
       startGame: async () => ({ roomCode: 'ABC234', status: 'in_progress' as const }),
+      getPrivateState: async () => ({ roomCode: 'ABC234', phase: 'SABOTAGE', round: 1, myPlayerId: SEAT.playerId, myRole: 'HACKER' }),
     });
     renderApp(LOBBY, api, SEAT);
 
@@ -82,7 +83,10 @@ describe('LobbyPage', () => {
   });
 
   it('everyone moves to the role screen when the room starts', async () => {
-    renderApp(LOBBY, fakeApi({ getRoom: async () => makeRoom(4, { status: 'in_progress' }) }), NON_HOST_SEAT);
+    renderApp(LOBBY, fakeApi({
+      getRoom: async () => makeRoom(4, { status: 'in_progress' }),
+      getPrivateState: async () => ({ roomCode: 'ABC234', phase: 'SABOTAGE', round: 1, myPlayerId: NON_HOST_SEAT.playerId, myRole: 'CIVILIAN' }),
+    }), NON_HOST_SEAT);
     expect(await screen.findByRole('heading', { name: 'Your role' })).toBeInTheDocument();
   });
 

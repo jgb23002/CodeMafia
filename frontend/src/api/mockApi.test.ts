@@ -24,6 +24,39 @@ async function roomWith(api: GameApi, count: number): Promise<JoinResult[]> {
 describe('mockApi', () => {
   afterEach(() => vi.useRealTimers());
 
+  it('returns no role while waiting, then one stable demo role per authenticated player', async () => {
+    const api = createMockApi({ latencyMs: 0 });
+    const players = await roomWith(api, 4);
+    const host = players[0]!;
+    expect((await api.getPrivateState(host.roomCode, host.playerToken)).myRole).toBeNull();
+    await api.startGame(host.roomCode, host.playerToken);
+    const roles = [];
+    for (const player of players) {
+      const state = await api.getPrivateState(host.roomCode, player.playerToken);
+      expect(state.myPlayerId).toBe(player.playerId);
+      expect(Object.keys(state).sort()).toEqual(['myPlayerId', 'myRole', 'phase', 'roomCode', 'round']);
+      expect(await api.getPrivateState(host.roomCode, player.playerToken)).toEqual(state);
+      expect((await api.getRoom(host.roomCode, player.playerToken)).players.every((member) => !('role' in member))).toBe(true);
+      roles.push(state.myRole);
+    }
+    expect(new Set(roles)).toEqual(new Set(['MAFIA', 'DETECTIVE', 'HACKER', 'CIVILIAN']));
+  });
+
+  it('rejects authenticated duplicate joins while preserving the existing seat', async () => {
+    const api = createMockApi({ latencyMs: 0 });
+    const host = await api.createRoom('Alice');
+    expect(await errorCode(api.joinRoom(host.roomCode, 'Different name', host.playerToken))).toBe('ALREADY_JOINED');
+    expect((await api.getRoom(host.roomCode, host.playerToken)).players).toHaveLength(1);
+  });
+
+  it('rejects unknown and cross-room private-role requests', async () => {
+    const api = createMockApi({ latencyMs: 0 });
+    const a = await api.createRoom('Alice');
+    const b = await api.createRoom('Bob');
+    expect(await errorCode(api.getPrivateState(a.roomCode, 'invalid'))).toBe('UNAUTHORIZED');
+    expect(await errorCode(api.getPrivateState(a.roomCode, b.playerToken))).toBe('NOT_ROOM_MEMBER');
+  });
+
   it('creates a room with the creator as host', async () => {
     const api = createMockApi({ latencyMs: 0 });
     const host = await api.createRoom('  Alice  ');

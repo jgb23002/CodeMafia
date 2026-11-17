@@ -194,3 +194,28 @@
   color: var(--color-on-accent);
   font-weight: var(--weight-bold);
 }
+
+.role-reveal {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  max-width: 36rem;
+  margin: var(--space-5) auto;
+  text-align: center;
+}
+
+.role-reveal h1, .role-reveal p { margin: 0; }
+.role-reveal__eyebrow, .role-reveal__privacy, .role-reveal__label { color: var(--color-text-muted); }
+.role-reveal__eyebrow { font-size: var(--text-sm); overflow-wrap: anywhere; }
+.role-reveal__card {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 14rem;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.role-reveal__name { margin: var(--space-3) 0; font-size: var(--text-2xl); color: var(--color-cyan); }
+.role-reveal__name--mafia { color: var(--color-coral); }
