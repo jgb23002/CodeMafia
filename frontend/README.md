@@ -85,3 +85,13 @@ Tests inject a fake `GameApi` through `<ApiProvider>` (see
   `Authorization: Bearer` header. It never appears in URLs or logs. The team has not yet
   approved a token storage policy.
 - Player names are rendered as React text, never as HTML.
+
+## Integrated Phase 1 browser verification
+
+The consolidated `jiya` branch includes the real PostgreSQL-backed backend.
+Root [Readme.md](../Readme.md) documents live setup. `npm run test:e2e` starts
+its own frontend/backend on ports 15173/18000 and tests four independent players
+against a migrated disposable database, including refresh, fifth-player rejection
+and host start. Set CODEMAFIA_DATABASE_URL and CODEMAFIA_PYTHON as documented.
+Install the test browser once with `npx playwright install chromium`.
+Role/challenge/vote/result screens remain Phase 2 placeholders.

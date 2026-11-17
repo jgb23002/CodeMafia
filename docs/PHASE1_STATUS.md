@@ -16,7 +16,7 @@ This records delivered code and actual verification separately from human approv
 | Gabriella | Content | Ten deterministic coding/escape questions, private keys, repeatable seed command | Content review |
 | Gabriella | Data tests | Real PostgreSQL migrations/seeds/constraints/concurrency/persistence tests | Independent PR review |
 | Michael | Backend foundation | App factory, env config, DB connection, SQL health and shared errors | Independent PR review |
-| Michael | CI/environments | Backend/frontend/integration workflows, pinned backend and npm lockfile, env examples | Remote check results to be recorded |
+| Michael | CI/environments | Backend/frontend/integration workflows, pinned backend and npm lockfile, env examples | All three workflows passed on implementation commit 0d0abb1 |
 | Michael | Deployment spike | Verified local path, deployment checklist and explicit public-host blockers | No public preview claimed |
 
 ## Verification register
@@ -36,8 +36,12 @@ This records delivered code and actual verification separately from human approv
   Backend tests, Frontend tests and Integration tests are required, branches must
   be current, one independent approval and resolved conversations are required,
   admins are included, and force-push/deletion are disabled.
-- Remote CI and consolidated draft PR: pending publication; local verification
-  above does not claim a GitHub run result.
+- Published draft PR: [#17 — Complete Phase 1 foundation, PostgreSQL persistence and integrated lobby](https://github.com/jgb23002/CodeMafia/pull/17).
+- All three push workflows passed on implementation commit `0d0abb1`:
+  [Backend CI](https://github.com/jgb23002/CodeMafia/actions/runs/44155863386),
+  [Frontend CI](https://github.com/jgb23002/CodeMafia/actions/runs/44155863448),
+  [Integration CI](https://github.com/jgb23002/CodeMafia/actions/runs/44155863775).
+  New pushes and the PR run the same checks again; inspect the PR for current-head results.
 
 ## Human acceptance still required
 

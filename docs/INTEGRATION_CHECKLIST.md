@@ -16,7 +16,7 @@ are in [PHASE1_STATUS.md](PHASE1_STATUS.md).
 - [x] Backend/frontend/integration workflows and environment/setup documentation.
 - [x] Deployment procedure with verified local path and public-hosting blockers.
 - [x] Record twelve actual GitHub issue URLs and verified required-check protections.
-- [ ] Record final remote CI and consolidated PR links.
+- [x] Record successful remote backend/frontend/integration CI and consolidated PR #17.
 - [x] Record final four-browser and backend/database restart smoke evidence.
 - [ ] All four members approve candidate rules themselves.
 - [ ] Independent teammate approves the consolidated PR before merge.
