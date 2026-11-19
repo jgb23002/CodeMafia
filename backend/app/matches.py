@@ -4,6 +4,7 @@ There is intentionally no public endpoint that lets a client declare a winner.
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 
 import psycopg
@@ -66,6 +67,16 @@ class MatchResult:
     rounds_played: int
 
 
+@dataclass(frozen=True)
+class StoredMatchResult:
+    session_id: str
+    winner: Winner
+    reason: WinReason
+    solved_count: int
+    rounds_played: int
+    completed_at: datetime
+
+
 class MatchRepository:
     def __init__(self, database: Database):
         self.database = database
@@ -88,8 +99,16 @@ class MatchRepository:
                        VALUES (%s, %s, %s, %s, %s)""",
                     (
                         result.session_id,
-                        result.winner,
-                        result.reason,
+                        (
+                            result.winner.value
+                            if isinstance(result.winner, Winner)
+                            else result.winner
+                        ),
+                        (
+                            result.reason.value
+                            if isinstance(result.reason, WinReason)
+                            else result.reason
+                        ),
                         result.solved_count,
                         result.rounds_played,
                     ),
@@ -101,17 +120,26 @@ class MatchRepository:
         except psycopg.Error:
             raise RepositoryError() from None
 
-    def read_result(self, session_id: str) -> MatchResult | None:
+    def read_result(self, session_id: str) -> StoredMatchResult | None:
         try:
             with self.database.connect() as connection:
                 row = connection.execute(
-                    "SELECT session_id, winner, reason, solved_count, rounds_played FROM results WHERE session_id = %s",
+                    """SELECT session_id, winner, reason, solved_count, rounds_played, completed_at
+                       FROM results WHERE session_id = %s""",
                     (session_id,),
                 ).fetchone()
-                return (
-                    MatchResult(**{**row, "session_id": str(row["session_id"])})
-                    if row
-                    else None
+                if row is None:
+                    return None
+                completed_at = row["completed_at"]
+                if completed_at.tzinfo is None or completed_at.utcoffset() is None:
+                    raise RepositoryError()
+                return StoredMatchResult(
+                    session_id=str(row["session_id"]),
+                    winner=Winner(row["winner"]),
+                    reason=WinReason(row["reason"]),
+                    solved_count=row["solved_count"],
+                    rounds_played=row["rounds_played"],
+                    completed_at=completed_at.astimezone(timezone.utc),
                 )
         except psycopg.Error:
             raise RepositoryError() from None
