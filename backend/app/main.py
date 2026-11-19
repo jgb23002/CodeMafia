@@ -18,7 +18,9 @@ from backend.app.errors import (
     unexpected_error,
     validation_error,
 )
+from backend.app.matches import MatchRepository
 from backend.app.middleware import RequestLimitsMiddleware
+from backend.app.results import ResultsService, create_results_router
 from backend.app.sessions import SessionService, create_session_router
 from backend.app.sessions.postgres import PostgresRepository
 
@@ -43,8 +45,11 @@ def create_app(
 
     app = FastAPI(title="CodeMafia", version="0.1.0", lifespan=lifespan)
     app.state.database = database
-    service = SessionService(PostgresRepository(database))
-    app.include_router(create_session_router(lambda: service))
+    session_repository = PostgresRepository(database)
+    session_service = SessionService(session_repository)
+    results_service = ResultsService(session_repository, MatchRepository(database))
+    app.include_router(create_session_router(lambda: session_service))
+    app.include_router(create_results_router(lambda: results_service))
     app.add_exception_handler(HTTPException, http_error)
     app.add_exception_handler(RequestValidationError, validation_error)
     app.add_exception_handler(Exception, unexpected_error)
