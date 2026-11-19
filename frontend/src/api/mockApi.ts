@@ -1,6 +1,6 @@
 import { ApiError } from './errors';
 import { MAX_PLAYERS } from './types';
-import type { ApiErrorCode, GameApi, JoinResult, Player, Room, RoomStatus } from './types';
+import type { ApiErrorCode, ChallengeBoard, ChallengeStatus, ChallengeType, GameApi, GamePhase, JoinResult, Player, Room, RoomStatus, Winner } from './types';
 import { GENERATED_CODE_ALPHABET, ROOM_CODE_LENGTH } from '../lib/validation';
 
 /*
@@ -10,6 +10,11 @@ import { GENERATED_CODE_ALPHABET, ROOM_CODE_LENGTH } from '../lib/validation';
  * Mirrors the backend: 4-player cap, duplicate names allowed, host-only start,
  * start needs exactly 4, no joining a started room, token-based auth.
  * PROPOSED, not in backend: room expiry (ROOM_EXPIRED, seeded EXPRD9) and leaving a room.
+ *
+ * Challenges: a started room goes straight to round 1's CHALLENGE phase (there is
+ * no round engine in the mock). Same rules as the backend: trimmed, case-sensitive
+ * answers; 3 tries per player per challenge; a wrong answer takes 15 s off the
+ * shared timer; a challenge counts once; 8 solves of 10 means the team escapes.
  */
 
 export interface MockApiOptions {
@@ -26,6 +31,55 @@ export interface MockApiOptions {
    */
   storage?: Pick<Storage, 'getItem' | 'setItem'> | null;
   now?: () => number;
+  /** Length of the shared challenge timer, in seconds. */
+  challengeSeconds?: number;
+  /**
+   * Pretend this many challenges from earlier rounds are already solved
+   * (the mock only has round 1), so the 8-of-10 escape can be reached.
+   */
+  challengeStartSolved?: number;
+}
+
+export const ESCAPE_TARGET = 8;
+export const TOTAL_CHALLENGES = 10;
+export const MAX_ATTEMPTS = 3;
+export const WRONG_ANSWER_PENALTY_SECONDS = 15;
+const MAX_ANSWER_LENGTH = 2000;
+
+interface MockChallenge {
+  id: string;
+  type: ChallengeType;
+  prompt: string;
+  /** Private: never copied into anything returned to the UI. */
+  answer: string;
+}
+
+/** Round 1 pair, matching backend/data/challenges.json. */
+const MOCK_CHALLENGES: MockChallenge[] = [
+  {
+    id: 'CM01',
+    type: 'CODING',
+    prompt: 'What integer does sum(n for n in [1, 2, 3, 4, 5, 6] if n % 2 == 0) return? Submit the integer only.',
+    answer: '12',
+  },
+  {
+    id: 'CM02',
+    type: 'ESCAPE',
+    prompt: 'A Caesar cipher shifted each original letter forward by 3. Decode KHOOR. Submit five uppercase letters.',
+    answer: 'HELLO',
+  },
+];
+
+interface MockGame {
+  phase: GamePhase;
+  round: number;
+  /** Epoch ms when the shared challenge timer ends. */
+  deadline: number;
+  solved: string[];
+  preSolved: number;
+  /** `${playerId}:${challengeId}` -> tries used. */
+  attempts: Record<string, number>;
+  winner: Winner | null;
 }
 
 interface MockPlayer extends Player {
@@ -38,6 +92,7 @@ interface MockRoom {
   hostId: string;
   players: MockPlayer[];
   expiresAt: string | null;
+  game?: MockGame;
 }
 
 type MockState = Record<string, MockRoom>;
@@ -94,6 +149,8 @@ export function createMockApi(options: MockApiOptions = {}): GameApi {
     roomTtlMs = 30 * 60 * 1000,
     storage = null,
     now = () => Date.now(),
+    challengeSeconds = 120,
+    challengeStartSolved = 0,
   } = options;
 
   let memory: MockState = {};
@@ -108,8 +165,13 @@ export function createMockApi(options: MockApiOptions = {}): GameApi {
         state = memory;
       }
     }
-    // Seeds are always present and always in their demo state.
-    return { ...state, ...seededRooms() };
+    // Seeds are always present and always in their demo state (the started demo room keeps its challenge progress).
+    const seeds = seededRooms();
+    for (const code of Object.keys(seeds)) {
+      const game = state[code]?.game;
+      if (game) seeds[code]!.game = game;
+    }
+    return { ...state, ...seeds };
   }
 
   function save(state: MockState): void {
@@ -205,6 +267,50 @@ export function createMockApi(options: MockApiOptions = {}): GameApi {
     };
   }
 
+  /** Started rooms get their challenge state the first time anyone looks. */
+  function gameFor(room: MockRoom): MockGame {
+    if (room.status === 'waiting') fail('GAME_NOT_STARTED');
+    if (!room.game) {
+      room.game = {
+        phase: 'CHALLENGE',
+        round: 1,
+        deadline: now() + challengeSeconds * 1000,
+        solved: [],
+        preSolved: challengeStartSolved,
+        attempts: {},
+        winner: null,
+      };
+    }
+    return room.game;
+  }
+
+  function secondsLeft(game: MockGame): number {
+    return Math.max(0, Math.ceil((game.deadline - now()) / 1000));
+  }
+
+  function solvedCount(game: MockGame): number {
+    return game.preSolved + game.solved.length;
+  }
+
+  function toBoard(room: MockRoom, game: MockGame, playerId: string): ChallengeBoard {
+    const timerOpen = game.phase === 'CHALLENGE' && secondsLeft(game) > 0;
+    return {
+      roomCode: room.code,
+      phase: game.phase,
+      round: game.round,
+      solvedCount: solvedCount(game),
+      escapeTarget: ESCAPE_TARGET,
+      totalChallenges: TOTAL_CHALLENGES,
+      deadline: new Date(game.deadline).toISOString(),
+      secondsRemaining: secondsLeft(game),
+      challenges: MOCK_CHALLENGES.map(({ id, type, prompt }) => {
+        const status: ChallengeStatus = game.solved.includes(id) ? 'SOLVED' : timerOpen ? 'OPEN' : 'CLOSED';
+        return { id, type, prompt, status, attemptsLeft: MAX_ATTEMPTS - (game.attempts[`${playerId}:${id}`] ?? 0) };
+      }),
+      winner: game.winner,
+    };
+  }
+
   function startBots(code: string): void {
     let next = 0;
     const timer = setInterval(() => {
@@ -288,6 +394,60 @@ export function createMockApi(options: MockApiOptions = {}): GameApi {
         if (room.players.length !== MAX_PLAYERS) fail('FOUR_PLAYERS_REQUIRED');
         room.status = 'in_progress';
         return { roomCode: room.code, status: room.status };
+      });
+    },
+
+    async getChallenges(code, token) {
+      await delay();
+      return transact((state) => {
+        const { room, player } = authorize(state, code, token);
+        return toBoard(room, gameFor(room), player.id);
+      });
+    },
+
+    async submitAnswer(code, token, challengeId, answer) {
+      await delay();
+      return transact((state) => {
+        const { room, player } = authorize(state, code, token);
+        const game = gameFor(room);
+        if (!player.isActive) fail('PLAYER_ELIMINATED');
+        if (game.phase !== 'CHALLENGE') fail('WRONG_PHASE');
+        const challenge = MOCK_CHALLENGES.find((c) => c.id === challengeId);
+        if (!challenge) fail('CHALLENGE_NOT_FOUND');
+        const submitted = answer.trim();
+        if (submitted.length < 1 || submitted.length > MAX_ANSWER_LENGTH) fail('INVALID_ANSWER');
+        if (secondsLeft(game) <= 0) fail('TIME_EXPIRED');
+        if (game.solved.includes(challenge.id)) fail('CHALLENGE_RESOLVED');
+        const key = `${player.id}:${challenge.id}`;
+        const used = game.attempts[key] ?? 0;
+        if (used >= MAX_ATTEMPTS) fail('ATTEMPT_LIMIT');
+        game.attempts[key] = used + 1;
+
+        const correct = submitted === challenge.answer;
+        let penaltySeconds = 0;
+        if (correct) {
+          game.solved.push(challenge.id);
+          if (solvedCount(game) >= ESCAPE_TARGET) {
+            game.winner = 'NON_MAFIA';
+            game.phase = 'GAME_OVER';
+            room.status = 'finished';
+          }
+        } else {
+          penaltySeconds = WRONG_ANSWER_PENALTY_SECONDS;
+          game.deadline = Math.max(now(), game.deadline - WRONG_ANSWER_PENALTY_SECONDS * 1000);
+        }
+        return {
+          challengeId: challenge.id,
+          correct,
+          solvedCount: solvedCount(game),
+          escapeTarget: ESCAPE_TARGET,
+          attemptsLeft: MAX_ATTEMPTS - game.attempts[key]!,
+          penaltySeconds,
+          deadline: new Date(game.deadline).toISOString(),
+          secondsRemaining: secondsLeft(game),
+          phase: game.phase,
+          winner: game.winner,
+        };
       });
     },
   };
