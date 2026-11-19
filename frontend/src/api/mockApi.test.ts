@@ -247,6 +247,8 @@ describe('mockApi challenges', () => {
 
   it('rejects answers after time runs out and closes open challenges', async () => {
     const { api, host, code, tick } = await startedRoom();
+    // The round timer starts the first time someone opens the board.
+    await api.getChallenges(code, host.playerToken);
     tick(121_000);
     expect(await errorCode(api.submitAnswer(code, host.playerToken, 'CM01', '12'))).toBe('TIME_EXPIRED');
     const board = await api.getChallenges(code, host.playerToken);
@@ -256,6 +258,8 @@ describe('mockApi challenges', () => {
 
   it('the penalty never pushes the deadline into the past', async () => {
     const { api, host, code, tick } = await startedRoom();
+    // The round timer starts the first time someone opens the board.
+    await api.getChallenges(code, host.playerToken);
     tick(110_000);
     const result = await api.submitAnswer(code, host.playerToken, 'CM01', 'nope');
     expect(result.secondsRemaining).toBe(0);
