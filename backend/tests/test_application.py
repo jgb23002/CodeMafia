@@ -14,7 +14,7 @@ pytestmark = pytest.mark.postgres
 def test_health_verifies_real_database_and_schema(pg_client):
     response = pg_client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "database": "ok", "schema_version": 1}
+    assert response.json() == {"status": "ok", "database": "ok", "schema_version": 2}
     assert response.headers["cache-control"] == "no-store"
 
 

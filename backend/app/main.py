@@ -9,9 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
 
+from backend.app.challenges import ChallengeService, create_challenge_router
+from backend.app.challenges.postgres import PostgresChallengeRepository
 from backend.app.config import Settings
 from backend.app.database import Database
-from backend.app.db.migrations import current_version
+from backend.app.db.migrations import current_version, latest_version
 from backend.app.errors import (
     error_response,
     http_error,
@@ -33,7 +35,7 @@ def create_app(
     async def lifespan(app):
         try:
             await run_in_threadpool(database.check)
-            if await run_in_threadpool(current_version, database) != 1:
+            if await run_in_threadpool(current_version, database) != latest_version():
                 raise RuntimeError("Schema version mismatch.")
         except (psycopg.Error, RuntimeError):
             raise RuntimeError(
@@ -45,6 +47,8 @@ def create_app(
     app.state.database = database
     service = SessionService(PostgresRepository(database))
     app.include_router(create_session_router(lambda: service))
+    challenge_service = ChallengeService(PostgresChallengeRepository(database))
+    app.include_router(create_challenge_router(lambda: challenge_service))
     app.add_exception_handler(HTTPException, http_error)
     app.add_exception_handler(RequestValidationError, validation_error)
     app.add_exception_handler(Exception, unexpected_error)
@@ -62,7 +66,7 @@ def create_app(
         try:
             database.check()
             version = current_version(database)
-            if version != 1:
+            if version != latest_version():
                 raise RuntimeError("Schema version mismatch.")
         except (psycopg.Error, RuntimeError):
             return error_response(503, "SERVICE_UNAVAILABLE", "Database is not ready.")
