@@ -177,3 +177,104 @@ describe('mockApi', () => {
     expect(await count()).toBe(4);
   });
 });
+
+describe('mockApi challenges', () => {
+  /** A started 4-player room on a controllable clock. */
+  async function startedRoom(options: { challengeStartSolved?: number } = {}) {
+    let clock = Date.parse('2026-11-19T18:00:00Z');
+    const api = createMockApi({ latencyMs: 0, now: () => clock, challengeSeconds: 120, ...options });
+    const players = await roomWith(api, 4);
+    const host = players[0]!;
+    await api.startGame(host.roomCode, host.playerToken);
+    const tick = (ms: number) => {
+      clock += ms;
+    };
+    return { api, players, host, code: host.roomCode, tick };
+  }
+
+  it('rejects challenges before the game starts', async () => {
+    const api = createMockApi({ latencyMs: 0 });
+    const [host] = await roomWith(api, 2);
+    expect(await errorCode(api.getChallenges(host!.roomCode, host!.playerToken))).toBe('GAME_NOT_STARTED');
+  });
+
+  it('serves the round pair with a timer and never exposes answers', async () => {
+    const { api, host, code } = await startedRoom();
+    const board = await api.getChallenges(code, host.playerToken);
+
+    expect(board).toMatchObject({ phase: 'CHALLENGE', round: 1, solvedCount: 0, escapeTarget: 8, totalChallenges: 10, secondsRemaining: 120 });
+    expect(board.challenges.map((c) => [c.id, c.type, c.status, c.attemptsLeft])).toEqual([
+      ['CM01', 'CODING', 'OPEN', 3],
+      ['CM02', 'ESCAPE', 'OPEN', 3],
+    ]);
+    const json = JSON.stringify(board);
+    expect(json).not.toContain('"12"');
+    expect(json).not.toContain('HELLO');
+  });
+
+  it('a wrong answer costs 15 seconds and one try', async () => {
+    const { api, host, code } = await startedRoom();
+    const result = await api.submitAnswer(code, host.playerToken, 'CM01', '11');
+
+    expect(result).toMatchObject({ correct: false, penaltySeconds: 15, attemptsLeft: 2, secondsRemaining: 105, solvedCount: 0 });
+    expect((await api.getChallenges(code, host.playerToken)).secondsRemaining).toBe(105);
+  });
+
+  it('answers are trimmed but case-sensitive', async () => {
+    const { api, host, code } = await startedRoom();
+    expect((await api.submitAnswer(code, host.playerToken, 'CM02', 'hello')).correct).toBe(false);
+    expect((await api.submitAnswer(code, host.playerToken, 'CM02', '  HELLO  ')).correct).toBe(true);
+  });
+
+  it('allows 3 tries per player per challenge', async () => {
+    const { api, players, code } = await startedRoom();
+    const [p1, p2] = players;
+    for (let i = 0; i < 3; i++) await api.submitAnswer(code, p1!.playerToken, 'CM01', 'nope');
+    expect(await errorCode(api.submitAnswer(code, p1!.playerToken, 'CM01', '12'))).toBe('ATTEMPT_LIMIT');
+    // A teammate still has their own tries.
+    expect((await api.submitAnswer(code, p2!.playerToken, 'CM01', '12')).correct).toBe(true);
+  });
+
+  it('counts a challenge once', async () => {
+    const { api, players, code } = await startedRoom();
+    const [p1, p2] = players;
+    expect((await api.submitAnswer(code, p1!.playerToken, 'CM01', '12')).solvedCount).toBe(1);
+    expect(await errorCode(api.submitAnswer(code, p2!.playerToken, 'CM01', '12'))).toBe('CHALLENGE_RESOLVED');
+    const board = await api.getChallenges(code, p2!.playerToken);
+    expect(board.solvedCount).toBe(1);
+    expect(board.challenges[0]!.status).toBe('SOLVED');
+  });
+
+  it('rejects answers after time runs out and closes open challenges', async () => {
+    const { api, host, code, tick } = await startedRoom();
+    tick(121_000);
+    expect(await errorCode(api.submitAnswer(code, host.playerToken, 'CM01', '12'))).toBe('TIME_EXPIRED');
+    const board = await api.getChallenges(code, host.playerToken);
+    expect(board.secondsRemaining).toBe(0);
+    expect(board.challenges.every((c) => c.status === 'CLOSED')).toBe(true);
+  });
+
+  it('the penalty never pushes the deadline into the past', async () => {
+    const { api, host, code, tick } = await startedRoom();
+    tick(110_000);
+    const result = await api.submitAnswer(code, host.playerToken, 'CM01', 'nope');
+    expect(result.secondsRemaining).toBe(0);
+  });
+
+  it('rejects unknown challenges and blank answers', async () => {
+    const { api, host, code } = await startedRoom();
+    expect(await errorCode(api.submitAnswer(code, host.playerToken, 'CM99', '12'))).toBe('CHALLENGE_NOT_FOUND');
+    expect(await errorCode(api.submitAnswer(code, host.playerToken, 'CM01', '   '))).toBe('INVALID_ANSWER');
+  });
+
+  it('the 8th solve wins the game for the team', async () => {
+    const { api, host, code } = await startedRoom({ challengeStartSolved: 6 });
+    expect(await api.submitAnswer(code, host.playerToken, 'CM01', '12')).toMatchObject({ solvedCount: 7, winner: null, phase: 'CHALLENGE' });
+    expect(await api.submitAnswer(code, host.playerToken, 'CM02', 'HELLO')).toMatchObject({
+      solvedCount: 8,
+      winner: 'NON_MAFIA',
+      phase: 'GAME_OVER',
+    });
+    expect((await api.getRoom(code, host.playerToken)).status).toBe('finished');
+  });
+});
