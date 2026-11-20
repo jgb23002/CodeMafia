@@ -132,7 +132,7 @@ class FakeChallengeTransaction(FakeTransaction):
         self.repo.fail("after_finish_update")
         self.repo.results[session_id] = {
             "winner": "NON_MAFIA",
-            "reason": "EIGHT_CHALLENGES_SOLVED",
+            "reason": "ESCAPED",
             "solved_count": solved_count,
             "rounds_played": rounds_played,
         }

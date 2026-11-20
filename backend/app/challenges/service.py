@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from backend.app.db.seeds import answer_matches
+from backend.app.matches import ESCAPE_TARGET, Winner
 from backend.app.sessions.repository import (
     Phase,
     Player,
@@ -27,10 +28,9 @@ from .repository import ChallengeRecord, ChallengeRepository, ChallengeTransacti
 CHALLENGE_SECONDS = 120
 WRONG_ANSWER_PENALTY_SECONDS = 15
 MAX_ATTEMPTS = 3
-ESCAPE_TARGET = 8
 TOTAL_CHALLENGES = 10
 MAX_ANSWER_LENGTH = 2000
-ESCAPE_WINNER = "NON_MAFIA"
+ESCAPE_WINNER = Winner.NON_MAFIA.value
 
 
 def utc_now() -> datetime:
