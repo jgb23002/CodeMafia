@@ -1,6 +1,22 @@
 import { ApiError, toApiError, toErrorCode } from './errors';
 import { MAX_PLAYERS, PHASES, ROLES } from './types';
-import type { ApiErrorBody, GameApi, JoinResult, Phase, PrivateState, Role, Room, RoomStatus, StartResult } from './types';
+import type {
+  AnswerResult,
+  ApiErrorBody,
+  ChallengeBoard,
+  ChallengeStatus,
+  ChallengeType,
+  GameApi,
+  GamePhase,
+  JoinResult,
+  Phase,
+  PrivateState,
+  Role,
+  Room,
+  RoomStatus,
+  StartResult,
+  Winner,
+} from './types';
 
 /*
  * Fetch client for Jiya's session and caller-private state contracts (API.md).
@@ -53,6 +69,40 @@ function toPrivateState(w: PrivateStateWire, code: string): PrivateState {
   return { roomCode: w.room_code, phase: w.phase, round: w.round, myPlayerId: w.my_player_id, myRole: w.my_role };
 }
 
+interface ChallengeWire {
+  challenge_id: string;
+  type: ChallengeType;
+  prompt: string;
+  status: ChallengeStatus;
+  attempts_left: number;
+}
+
+interface ChallengeBoardWire {
+  room_code: string;
+  phase: GamePhase;
+  round: number;
+  solved_count: number;
+  escape_target: number;
+  total_challenges: number;
+  deadline: string | null;
+  seconds_remaining: number | null;
+  challenges: ChallengeWire[];
+  winner: Winner | null;
+}
+
+interface AnswerResultWire {
+  challenge_id: string;
+  correct: boolean;
+  solved_count: number;
+  escape_target: number;
+  attempts_left: number;
+  penalty_seconds: number;
+  deadline: string | null;
+  seconds_remaining: number | null;
+  phase: GamePhase;
+  winner: Winner | null;
+}
+
 // ---- Mapping ----
 
 export function phaseToStatus(phase: string): RoomStatus {
@@ -90,6 +140,42 @@ function toRoom(w: LobbyWire): Room {
 
 function toStartResult(w: StartedGameWire): StartResult {
   return { roomCode: w.room_code, status: phaseToStatus(w.phase) };
+}
+
+function toChallengeBoard(w: ChallengeBoardWire): ChallengeBoard {
+  return {
+    roomCode: w.room_code,
+    phase: w.phase,
+    round: w.round,
+    solvedCount: w.solved_count,
+    escapeTarget: w.escape_target,
+    totalChallenges: w.total_challenges,
+    deadline: w.deadline,
+    secondsRemaining: w.seconds_remaining,
+    challenges: w.challenges.map((c) => ({
+      id: c.challenge_id,
+      type: c.type,
+      prompt: c.prompt,
+      status: c.status,
+      attemptsLeft: c.attempts_left,
+    })),
+    winner: w.winner,
+  };
+}
+
+function toAnswerResult(w: AnswerResultWire): AnswerResult {
+  return {
+    challengeId: w.challenge_id,
+    correct: w.correct,
+    solvedCount: w.solved_count,
+    escapeTarget: w.escape_target,
+    attemptsLeft: w.attempts_left,
+    penaltySeconds: w.penalty_seconds,
+    deadline: w.deadline,
+    secondsRemaining: w.seconds_remaining,
+    phase: w.phase,
+    winner: w.winner,
+  };
 }
 
 // ---- Client ----
@@ -145,6 +231,18 @@ export function createHttpApi(baseUrl: string, fetchImpl: typeof fetch = fetch):
     },
     async startGame(code, token) {
       return toStartResult(await request<StartedGameWire>(`${seg(code)}/start`, { method: 'POST', body: {}, token }));
+    },
+    async getChallenges(code, token) {
+      return toChallengeBoard(await request<ChallengeBoardWire>(`${seg(code)}/challenges`, { method: 'GET', token }));
+    },
+    async submitAnswer(code, token, challengeId, answer) {
+      return toAnswerResult(
+        await request<AnswerResultWire>(`${seg(code)}/answers`, {
+          method: 'POST',
+          body: { challenge_id: challengeId, answer },
+          token,
+        }),
+      );
     },
   };
 }
