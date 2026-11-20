@@ -14,7 +14,7 @@ pytestmark = pytest.mark.postgres
 def test_health_verifies_real_database_and_schema(pg_client):
     response = pg_client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "database": "ok", "schema_version": 1}
+    assert response.json() == {"status": "ok", "database": "ok", "schema_version": 2}
     assert response.headers["cache-control"] == "no-store"
 
 
@@ -55,6 +55,8 @@ def test_real_application_create_join_start_contract(pg_client):
         "/api/sessions/{code}",
         "/api/sessions/{code}/join",
         "/api/sessions/{code}/start",
+        "/api/sessions/{code}/challenges",
+        "/api/sessions/{code}/answers",
     }
     assert "answer_key" not in json.dumps(schema)
 
