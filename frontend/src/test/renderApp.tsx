@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 import { App, ROUTER_FUTURE } from '../App';
 import { ApiProvider } from '../api/ApiProvider';
 import { ApiError } from '../api/errors';
-import type { GameApi, Room } from '../api/types';
+import type { ChallengeBoard, GameApi, Room } from '../api/types';
 import { SessionProvider } from '../session/SessionProvider';
 import type { Seat } from '../session/SessionProvider';
 
@@ -41,6 +41,8 @@ export function fakeApi(overrides: Partial<GameApi> = {}): GameApi {
     getRoom: vi.fn(overrides.getRoom ?? unexpected),
     leaveRoom: vi.fn(overrides.leaveRoom ?? unexpected),
     startGame: vi.fn(overrides.startGame ?? unexpected),
+    getChallenges: vi.fn(overrides.getChallenges ?? unexpected),
+    submitAnswer: vi.fn(overrides.submitAnswer ?? unexpected),
   };
 }
 
@@ -67,6 +69,26 @@ export function makeRoom(count: number, overrides: Partial<Room> = {}): Room {
     players: names.slice(0, count).map((name, i) => ({ id: `p${i + 1}`, name, isHost: i === 0, isActive: true })),
     maxPlayers: 4,
     expiresAt: null,
+    ...overrides,
+  };
+}
+
+/** Round 1 challenge board for SEAT's room: nothing solved, 2:00 on the clock. */
+export function makeBoard(overrides: Partial<ChallengeBoard> = {}): ChallengeBoard {
+  return {
+    roomCode: 'ABC234',
+    phase: 'CHALLENGE',
+    round: 1,
+    solvedCount: 0,
+    escapeTarget: 8,
+    totalChallenges: 10,
+    deadline: '2026-11-19T18:30:00+00:00',
+    secondsRemaining: 120,
+    challenges: [
+      { id: 'CM01', type: 'CODING', prompt: 'What integer does sum(...) return?', status: 'OPEN', attemptsLeft: 3 },
+      { id: 'CM02', type: 'ESCAPE', prompt: 'Decode KHOOR.', status: 'OPEN', attemptsLeft: 3 },
+    ],
+    winner: null,
     ...overrides,
   };
 }

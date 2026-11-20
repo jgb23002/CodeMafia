@@ -65,11 +65,73 @@ export type ApiErrorCode =
   | 'IDENTITY_CREATION_FAILED'
   | 'PERSISTENCE_ERROR'
   | 'INTERNAL_ERROR'
+  // Backend challenge codes (Gabriella's answer/progress endpoints)
+  | 'GAME_NOT_STARTED'
+  | 'WRONG_PHASE'
+  | 'PLAYER_ELIMINATED'
+  | 'CHALLENGE_NOT_FOUND'
+  | 'CHALLENGE_RESOLVED'
+  | 'TIME_EXPIRED'
+  | 'ATTEMPT_LIMIT'
+  | 'INVALID_ANSWER'
   // PROPOSED, not in backend (mock only)
   | 'ROOM_EXPIRED'
   // Client-side
   | 'NETWORK_ERROR'
   | 'UNKNOWN';
+
+/** Backend game phases, as sent on the wire. */
+export type GamePhase = 'WAITING' | 'SABOTAGE' | 'CHALLENGE' | 'DISCUSSION' | 'VOTING' | 'ROUND_RESULTS' | 'GAME_OVER';
+
+export type ChallengeType = 'CODING' | 'ESCAPE';
+
+/** OPEN: can be answered now. SOLVED: someone on the team got it. CLOSED: time ran out or the phase moved on. */
+export type ChallengeStatus = 'OPEN' | 'SOLVED' | 'CLOSED';
+
+export type Winner = 'NON_MAFIA' | 'MAFIA';
+
+/** One challenge as players see it. The answer key never leaves the server. */
+export interface Challenge {
+  id: string;
+  type: ChallengeType;
+  prompt: string;
+  status: ChallengeStatus;
+  /** Tries this player has left on this challenge (max 3). */
+  attemptsLeft: number;
+}
+
+/** The current round's challenges plus the team's escape progress. */
+export interface ChallengeBoard {
+  roomCode: string;
+  phase: GamePhase;
+  round: number;
+  solvedCount: number;
+  /** Solves needed to escape (8). */
+  escapeTarget: number;
+  /** Challenges in the whole game (10). */
+  totalChallenges: number;
+  /** ISO timestamp when the shared challenge timer ends, or null if no timer is running. */
+  deadline: string | null;
+  /** Seconds left on the shared timer when the server answered, or null. */
+  secondsRemaining: number | null;
+  challenges: Challenge[];
+  winner: Winner | null;
+}
+
+/** What the server says after one answer. */
+export interface AnswerResult {
+  challengeId: string;
+  correct: boolean;
+  solvedCount: number;
+  escapeTarget: number;
+  attemptsLeft: number;
+  /** Seconds taken off the shared timer by this answer (15 when wrong, else 0). */
+  penaltySeconds: number;
+  deadline: string | null;
+  secondsRemaining: number | null;
+  phase: GamePhase;
+  winner: Winner | null;
+}
 
 /** Wire error envelope: { "error": { "code", "message", "details" } } */
 export interface ApiErrorBody {
@@ -87,4 +149,8 @@ export interface GameApi {
   /** No backend endpoint yet: the HTTP client resolves without a request and the caller clears the local seat. */
   leaveRoom(code: string, token: string): Promise<void>;
   startGame(code: string, token: string): Promise<StartResult>;
+  /** Current round's challenges and the team's progress. Never includes answers. */
+  getChallenges(code: string, token: string): Promise<ChallengeBoard>;
+  /** Submit one answer. The server checks it; wrong answers cost the team 15 seconds. */
+  submitAnswer(code: string, token: string, challengeId: string, answer: string): Promise<AnswerResult>;
 }
