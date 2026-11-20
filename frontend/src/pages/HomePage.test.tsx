@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { createMockApi } from '../api/mockApi';
 import type { JoinResult, Room } from '../api/types';
-import { deferred, fakeApi, renderApp } from '../test/renderApp';
+import { SEAT, deferred, fakeApi, renderApp } from '../test/renderApp';
 
 const JOINED: JoinResult = {
   sessionId: 's1',
@@ -25,6 +25,24 @@ async function fillAndJoin(name: string, code: string) {
 }
 
 describe('HomePage', () => {
+  it('resumes a saved seat instead of posting a duplicate join', async () => {
+    const api = fakeApi({ getRoom: neverLoads });
+    renderApp('/?code=ABC234', api, SEAT);
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Join room' }));
+    expect(await screen.findByText('Loading room…')).toBeInTheDocument();
+    expect(api.joinRoom).not.toHaveBeenCalled();
+    expect(JSON.parse(window.sessionStorage.getItem('codemafia.seat')!)).toEqual(SEAT);
+  });
+
+  it('offers an explicit resume action using the original credential', async () => {
+    const api = fakeApi({ getRoom: neverLoads });
+    renderApp('/', api, SEAT);
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Resume my room' }));
+    expect(await screen.findByText('Loading room…')).toBeInTheDocument();
+    expect(api.getRoom).toHaveBeenCalledWith(SEAT.roomCode, SEAT.playerToken);
+    expect(api.createRoom).not.toHaveBeenCalled();
+    expect(api.joinRoom).not.toHaveBeenCalled();
+  });
   it('shows an inline error for an invalid code without calling the API', async () => {
     const api = fakeApi();
     renderApp('/', api);

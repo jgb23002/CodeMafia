@@ -20,7 +20,14 @@ from .repository import (
     SessionTransaction,
     StateConflict,
 )
-from .schemas import Lobby, LobbyPlayer, PlayerInput, Registration, StartedGame
+from .schemas import (
+    Lobby,
+    LobbyPlayer,
+    PlayerInput,
+    PrivateState,
+    Registration,
+    StartedGame,
+)
 
 CAPACITY = 4
 ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -155,13 +162,26 @@ class SessionService:
                 failure_code = "IDENTITY_CREATION_FAILED"
         raise SessionError(500, failure_code, "Unable to create a room. Please retry.")
 
-    def join(self, code: str, display_name: str) -> Registration:
+    def join(
+        self, code: str, display_name: str, authorization: str | None = None
+    ) -> Registration:
+        digest = bearer_hash(authorization) if authorization is not None else None
         validate_code(code)
         name = PlayerInput(display_name=display_name).display_name
         for _ in range(MAX_REGISTRATION_ATTEMPTS):
             try:
                 with self._transaction() as tx:
+                    caller = (
+                        self._authenticate(tx, digest) if digest is not None else None
+                    )
                     room = self._room(tx, code)
+                    if caller is not None:
+                        self._member(caller, room)
+                        raise SessionError(
+                            409,
+                            "ALREADY_JOINED",
+                            "Use your existing seat to resume this room.",
+                        )
                     self._waiting(room)
                     count = len(tx.list_players(room.session_id))
                     if count >= CAPACITY:
@@ -203,6 +223,31 @@ class SessionService:
                 ],
                 player_count=len(players),
                 capacity=CAPACITY,
+            )
+        return response
+
+    def private_state(self, code: str, authorization: str | None) -> PrivateState:
+        digest = bearer_hash(authorization)
+        validate_code(code)
+        with self._transaction() as tx:
+            caller = self._authenticate(tx, digest)
+            room = self._room(tx, code, lock="shared")
+            self._member(caller, room)
+            role = None
+            if room.phase != Phase.WAITING:
+                role = tx.get_player_role(room.session_id, caller.player_id)
+                if role is None:
+                    raise SessionError(
+                        500,
+                        "ROLE_UNAVAILABLE",
+                        "Unable to retrieve your role. Please retry.",
+                    )
+            response = PrivateState(
+                room_code=room.room_code,
+                phase=room.phase,
+                round=room.round,
+                my_player_id=caller.player_id,
+                my_role=role,
             )
         return response
 

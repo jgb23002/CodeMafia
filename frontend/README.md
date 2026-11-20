@@ -1,8 +1,8 @@
 # CodeMafia frontend
 
 React 18 + TypeScript (strict) + Vite, React Router v6, Vitest + React Testing Library.
-Owner: Priyanshi. Covers the Week 11 foundation and lobby. Role, challenge, vote and
-result screens are placeholders until later weeks.
+Owner: Priyanshi. Covers the Week 11 foundation and lobby. The private role screen is implemented for Week 12; challenge, vote and result
+screens remain placeholders until later work.
 
 ## Run it
 
@@ -11,7 +11,7 @@ Requires Node 20+.
 ```sh
 cd frontend
 npm install
-cp .env.example .env     # mock API with bots, see below
+cp .env.example .env     # real API by default; see below
 npm run dev              # http://localhost:5173
 ```
 
@@ -31,15 +31,15 @@ implementations, chosen in [src/api/index.ts](src/api/index.ts) from `.env`:
 
 | Variable | Default in `.env.example` | Meaning |
 |---|---|---|
-| `VITE_USE_MOCK_API` | `true` | `true` = in-memory mock ([mockApi.ts](src/api/mockApi.ts)); anything else = real HTTP ([httpApi.ts](src/api/httpApi.ts)) |
-| `VITE_MOCK_BOTS` | `true` | Mock only: fake players join a new room every ~1.5s so one tab can fill a lobby |
+| `VITE_USE_MOCK_API` | `false` | `true` = in-memory mock ([mockApi.ts](src/api/mockApi.ts)); anything else = real HTTP ([httpApi.ts](src/api/httpApi.ts)) |
+| `VITE_MOCK_BOTS` | `false` | Mock only: fake players join a new room every ~1.5s so one tab can fill a lobby |
 | `VITE_API_URL` | `http://localhost:8000` | Real API base URL; requests go to `${VITE_API_URL}/api/sessions…` |
 
 **Switching to the real backend:** set `VITE_USE_MOCK_API=false`, point `VITE_API_URL` at
 the FastAPI server, and restart `npm run dev` (Vite reads `.env` only at startup). The
 backend must allow the frontend origin via CORS.
 
-The HTTP client follows Jiya's session contract in `API.md` (create, join, lobby and start).
+The HTTP client follows Jiya's session contract in `API.md` (create, join, lobby, start and caller-private state).
 There is **no leave endpoint yet**, so in real mode "Leave room" only clears this tab's
 seat locally.
 
@@ -94,4 +94,19 @@ its own frontend/backend on ports 15173/18000 and tests four independent players
 against a migrated disposable database, including refresh, fifth-player rejection
 and host start. Set CODEMAFIA_DATABASE_URL and CODEMAFIA_PYTHON as documented.
 Install the test browser once with `npx playwright install chromium`.
-Role/challenge/vote/result screens remain Phase 2 placeholders.
+The role screen retrieves only the authenticated caller’s role. Challenge/vote/result
+screens remain later Phase 2 placeholders.
+
+## Week 12 role privacy and rejoin
+
+The real backend assigns one of each role using secure server randomness. The
+role page fetches `/state` with this tab’s bearer token, verifies the returned
+identity, and starts concealed. Reveal/Hide affects only this player’s card.
+Refresh conceals the card again and reads the same immutable assignment; roles
+are never written into shared browser storage or the seat’s sessionStorage.
+Only the seat credential is retained. Resume my room avoids duplicate registration.
+
+The browser-only mock persists its full demo state, including simulated roles
+and credentials, in localStorage when shared-tab mode is enabled. It cannot
+provide confidentiality against a client inspecting that store. Use the default
+real API mode and PostgreSQL-backed browser test for actual role-privacy checks.

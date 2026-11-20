@@ -427,4 +427,5 @@ def test_planned_gameplay_routes_are_absent(client):
         "/api/sessions/{code}/join",
         "/api/sessions/{code}",
         "/api/sessions/{code}/start",
+        "/api/sessions/{code}/state",
     }

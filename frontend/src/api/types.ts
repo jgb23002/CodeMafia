@@ -6,6 +6,19 @@
  */
 
 export const MAX_PLAYERS = 4;
+export const ROLES = ['MAFIA', 'DETECTIVE', 'HACKER', 'CIVILIAN'] as const;
+export type Role = (typeof ROLES)[number];
+export const PHASES = ['WAITING', 'SABOTAGE', 'CHALLENGE', 'DISCUSSION', 'VOTING', 'ROUND_RESULTS', 'GAME_OVER'] as const;
+export type Phase = (typeof PHASES)[number];
+
+/** This caller's private state. Contains no roster or other players' assignments. */
+export interface PrivateState {
+  roomCode: string;
+  phase: Phase;
+  round: number;
+  myPlayerId: string;
+  myRole: Role | null;
+}
 
 /**
  * Client-side lifecycle derived from the backend `phase`:
@@ -54,6 +67,7 @@ export type ApiErrorCode =
   | 'HOST_ONLY'
   | 'ROOM_NOT_FOUND'
   | 'ROOM_FULL'
+  | 'ALREADY_JOINED'
   | 'GAME_ALREADY_STARTED'
   | 'FOUR_PLAYERS_REQUIRED'
   | 'INACTIVE_PLAYERS'
@@ -65,6 +79,7 @@ export type ApiErrorCode =
   | 'IDENTITY_CREATION_FAILED'
   | 'PERSISTENCE_ERROR'
   | 'INTERNAL_ERROR'
+  | 'ROLE_UNAVAILABLE'
   // PROPOSED, not in backend (mock only)
   | 'ROOM_EXPIRED'
   // Client-side
@@ -82,8 +97,9 @@ export interface ApiErrorBody {
  */
 export interface GameApi {
   createRoom(name: string): Promise<JoinResult>;
-  joinRoom(code: string, name: string): Promise<JoinResult>;
+  joinRoom(code: string, name: string, token?: string): Promise<JoinResult>;
   getRoom(code: string, token: string): Promise<Room>;
+  getPrivateState(code: string, token: string): Promise<PrivateState>;
   /** No backend endpoint yet: the HTTP client resolves without a request and the caller clears the local seat. */
   leaveRoom(code: string, token: string): Promise<void>;
   startGame(code: string, token: string): Promise<StartResult>;
