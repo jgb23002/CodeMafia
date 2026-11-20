@@ -113,3 +113,91 @@ describe('httpApi', () => {
     expect(phaseToStatus('GAME_OVER')).toBe('finished');
   });
 });
+
+describe('httpApi challenges', () => {
+  const boardWire = {
+    room_code: 'AB7K9Q',
+    phase: 'CHALLENGE',
+    round: 1,
+    solved_count: 2,
+    escape_target: 8,
+    total_challenges: 10,
+    deadline: '2026-11-19T18:30:00+00:00',
+    seconds_remaining: 87,
+    challenges: [{ challenge_id: 'CM01', type: 'CODING', prompt: 'Predict the output', status: 'OPEN', attempts_left: 3 }],
+    winner: null,
+  };
+
+  it('getChallenges sends the token in the header and maps the board to camelCase', async () => {
+    const { api, lastCall } = setup(jsonResponse(200, boardWire));
+    const board = await api.getChallenges('AB7K9Q', 'secret-token');
+
+    expect(lastCall().url).toBe('http://api.test/api/sessions/AB7K9Q/challenges');
+    expect(lastCall().url).not.toContain('secret-token');
+    expect(lastCall().init.method).toBe('GET');
+    expect(lastCall().headers.Authorization).toBe('Bearer secret-token');
+    expect(board).toEqual({
+      roomCode: 'AB7K9Q',
+      phase: 'CHALLENGE',
+      round: 1,
+      solvedCount: 2,
+      escapeTarget: 8,
+      totalChallenges: 10,
+      deadline: '2026-11-19T18:30:00+00:00',
+      secondsRemaining: 87,
+      challenges: [{ id: 'CM01', type: 'CODING', prompt: 'Predict the output', status: 'OPEN', attemptsLeft: 3 }],
+      winner: null,
+    });
+  });
+
+  it('submitAnswer posts challenge_id and answer and maps the result', async () => {
+    const { api, lastCall } = setup(
+      jsonResponse(200, {
+        challenge_id: 'CM01',
+        correct: false,
+        solved_count: 2,
+        escape_target: 8,
+        attempts_left: 2,
+        penalty_seconds: 15,
+        deadline: '2026-11-19T18:29:45+00:00',
+        seconds_remaining: 72,
+        phase: 'CHALLENGE',
+        winner: null,
+      }),
+    );
+    const result = await api.submitAnswer('AB7K9Q', 'secret-token', 'CM01', '11');
+
+    expect(lastCall().url).toBe('http://api.test/api/sessions/AB7K9Q/answers');
+    expect(lastCall().init.method).toBe('POST');
+    expect(JSON.parse(lastCall().init.body as string)).toEqual({ challenge_id: 'CM01', answer: '11' });
+    expect(lastCall().headers.Authorization).toBe('Bearer secret-token');
+    expect(result).toEqual({
+      challengeId: 'CM01',
+      correct: false,
+      solvedCount: 2,
+      escapeTarget: 8,
+      attemptsLeft: 2,
+      penaltySeconds: 15,
+      deadline: '2026-11-19T18:29:45+00:00',
+      secondsRemaining: 72,
+      phase: 'CHALLENGE',
+      winner: null,
+    });
+  });
+
+  it.each([
+    [409, 'WRONG_PHASE'],
+    [409, 'CHALLENGE_RESOLVED'],
+    [409, 'TIME_EXPIRED'],
+    [409, 'ATTEMPT_LIMIT'],
+    [404, 'CHALLENGE_NOT_FOUND'],
+    [403, 'PLAYER_ELIMINATED'],
+    [422, 'INVALID_ANSWER'],
+    [409, 'GAME_NOT_STARTED'],
+  ])('maps a %i %s answer error', async (status, wireCode) => {
+    const { api } = setup(jsonResponse(status, { error: { code: wireCode, message: 'x', details: {} } }));
+    const err = await api.submitAnswer('AB7K9Q', 't', 'CM01', 'x').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({ code: wireCode, status });
+  });
+});
