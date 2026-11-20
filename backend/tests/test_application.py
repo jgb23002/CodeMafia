@@ -58,6 +58,7 @@ def test_real_application_create_join_start_contract(pg_client):
         "/api/sessions/{code}/state",
         "/api/sessions/{code}/challenges",
         "/api/sessions/{code}/answers",
+        "/api/sessions/{code}/results",
     }
     assert "answer_key" not in json.dumps(schema)
 
