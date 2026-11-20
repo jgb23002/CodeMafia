@@ -15,6 +15,7 @@ real database tests are consolidated on `jiya` by the owner's request.
 | challenge_completions | Unique session/challenge pair prevents double-counted progress; same-room solver |
 | votes | Unique session/round/voter, same-room voter and target, no self-votes |
 | results | One result/session, winner, reason, solved count, rounds played, completion timestamp |
+| challenge_timers | Migration 002: one shared challenge deadline per session/round, shortened by wrong answers |
 | schema_migrations | Applied migration versions, SHA-256 checksums and timestamps |
 
 `backend/migrations/001_initial.up.sql` is the executable schema. Its down file

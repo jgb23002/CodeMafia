@@ -197,7 +197,27 @@ answers, other players' role fields, hashes, or tokens. GAME_OVER full role reve
 is proposed for results. Errors: 401/403/404/422/500. Michael coordinates state
 aggregation with Gabriella's challenge/progress data and Jiya's session boundary.
 
-## 6. Challenge answers — PLANNED
+## 6. Challenges and answers — IMPLEMENTED COMPONENT (Gabriella, Week 12)
+
+`GET /api/sessions/{code}/challenges` — authenticated member of a started room.
+Serves only the current round's pair (CODING first, then ESCAPE). Answer keys
+and other players' answers are never included. The round's shared deadline
+starts the first time the board or an answer is requested in CHALLENGE.
+
+```json
+{"room_code":"AB7K9Q","phase":"CHALLENGE","round":1,"solved_count":0,
+ "escape_target":8,"total_challenges":10,
+ "deadline":"2026-11-19T18:02:00+00:00","seconds_remaining":120,
+ "challenges":[{"challenge_id":"CM01","type":"CODING","prompt":"What integer...","status":"OPEN","attempts_left":3},
+               {"challenge_id":"CM02","type":"ESCAPE","prompt":"A Caesar cipher...","status":"OPEN","attempts_left":3}],
+ "winner":null}
+```
+
+`status` is SOLVED once anyone solves it, OPEN while CHALLENGE time remains,
+otherwise CLOSED. `attempts_left` is the caller's own count. `deadline` and
+`seconds_remaining` are null before the round's CHALLENGE phase. `winner` is
+read from `results` only in GAME_OVER. Errors: 401; 403 NOT_ROOM_MEMBER;
+404 ROOM_NOT_FOUND; 409 GAME_NOT_STARTED; 422 INVALID_ROOM_CODE; 500.
 
 `POST /api/sessions/{code}/answers` — active authenticated member, CHALLENGE phase.
 
@@ -205,20 +225,29 @@ aggregation with Gabriella's challenge/progress data and Jiya's session boundary
 {"challenge_id":"CM01","answer":"12"}
 ```
 
-200 **PROPOSED** response:
+200 response:
 
 ```json
-{"challenge_id":"CM01","correct":true,"solved_count":3,"phase":"CHALLENGE","winner":null}
+{"challenge_id":"CM01","correct":true,"solved_count":3,"escape_target":8,
+ "attempts_left":2,"penalty_seconds":0,"deadline":"2026-11-19T18:02:00+00:00",
+ "seconds_remaining":87,"phase":"CHALLENGE","winner":null}
 ```
 
-Candidate answer policy: a string of 1–2000 characters, outer whitespace trimmed,
-case-sensitive; at most three attempts per player/challenge/round. Correctness is boolean;
-count integer 0–10. Server verifies membership, active state, phase, challenge
-ownership/availability and answer. A unique completion changes progress at most
-once. Wrong answers subtract 15 seconds from the shared challenge deadline, floored at now. Check eight unique solves
-and terminate immediately when eligible. Errors: 401/403; 404 CHALLENGE_NOT_FOUND;
-409 WRONG_PHASE/CHALLENGE_RESOLVED; 422 INVALID_ANSWER/input; 500. No answer-key echo.
-Gabriella owns answer validation/progress; timing policy requires team approval.
+Implemented candidate policy (team approval still needed): the answer is
+trimmed and compared exactly (case-sensitive), 1–2000 characters; at most three
+attempts per player per challenge; a wrong answer subtracts 15 seconds from the
+round's shared deadline, never earlier than now; a challenge is completed at most
+once per match; the eighth unique solve stores a NON_MAFIA result and moves the
+room to GAME_OVER in the same transaction. Submitted code is never executed.
+All answers serialize on the room's exclusive lock. Errors: 401;
+403 NOT_ROOM_MEMBER/PLAYER_ELIMINATED; 404 ROOM_NOT_FOUND/CHALLENGE_NOT_FOUND
+(unknown, or not in the current round); 409 GAME_NOT_STARTED/WRONG_PHASE/
+CHALLENGE_RESOLVED/TIME_EXPIRED/ATTEMPT_LIMIT/STATE_CONFLICT; 422 INVALID_ANSWER/
+INVALID_REQUEST/INVALID_ROOM_CODE; 500. No answer-key echo.
+
+Integration notes: the phase engine (round advancement) is a separate feature;
+when it ends CHALLENGE early or advances rounds, the next round gets a new timer
+automatically. Section 5's `/state` can reuse `ChallengeService.board`.
 
 ## 7. Voting — PLANNED
 

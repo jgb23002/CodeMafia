@@ -26,9 +26,11 @@ def test_ten_deterministic_challenges_have_known_answers():
 
 @pytest.mark.postgres
 def test_migrations_upgrade_idempotently_and_rollback_cleanly(pg_database):
-    assert current_version(pg_database) == 1
+    assert current_version(pg_database) == 2
     assert migrate(pg_database) == []
     seed_challenges(pg_database)
+    assert migrate(pg_database, down=True) == [2]
+    assert current_version(pg_database) == 1
     assert migrate(pg_database, down=True) == [1]
     assert current_version(pg_database) == 0
     with pg_database.connect() as connection:
@@ -38,7 +40,7 @@ def test_migrations_upgrade_idempotently_and_rollback_cleanly(pg_database):
             ]
             is None
         )
-    assert migrate(pg_database) == [1]
+    assert migrate(pg_database) == [1, 2]
     assert seed_challenges(pg_database) == 10
 
 

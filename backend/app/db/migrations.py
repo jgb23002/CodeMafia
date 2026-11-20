@@ -60,6 +60,11 @@ def migrate(database: Database, *, down: bool = False) -> list[int]:
     return changed
 
 
+def latest_version() -> int:
+    """Newest migration in this checkout; the app requires the database to match."""
+    return max(int(path.name.split("_")[0]) for path in MIGRATIONS.glob("*.up.sql"))
+
+
 def current_version(database: Database) -> int:
     with database.connect() as connection:
         if (
