@@ -11,7 +11,7 @@ import { useSession } from '../session/SessionProvider';
 
 export function HomePage() {
   const api = useApi();
-  const { setSeat } = useSession();
+  const { seat, setSeat } = useSession();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -53,6 +53,10 @@ export function HomePage() {
   async function handleJoin(event: FormEvent) {
     event.preventDefault();
     create.reset();
+    if (seat?.roomCode === code) {
+      navigate(`/room/${code}`);
+      return;
+    }
     const playerName = checkName();
     const roomCodeError = validateCode(code);
     setCodeError(roomCodeError);
@@ -67,6 +71,15 @@ export function HomePage() {
         <h1>Escape the system. Find the mafia.</h1>
         <p>Four players, one room code. Create a room and share the code, or join a friend’s room.</p>
       </section>
+
+      {seat && (
+        <div className="banner">
+          <p>Already playing as {seat.playerName} in room {seat.roomCode}?</p>
+          <Button variant="ghost" onClick={() => navigate(`/room/${seat.roomCode}`)}>
+            Resume my room
+          </Button>
+        </div>
+      )}
 
       <TextField
         id="player-name"

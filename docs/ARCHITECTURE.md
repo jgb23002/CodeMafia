@@ -48,6 +48,8 @@ safe envelopes; the API bounds body buffering and allows only configured origins
 The browser holds a private bearer token per tab. Room codes never authenticate.
 Answer keys stay under backend/data and out of safe queries, DTOs and OpenAPI.
 
-Gameplay state retrieval, timers, answers, voting, sabotage and public results
-are planned Phase 2 endpoints. The database schema is foundation, not evidence
+Week 12 adds caller-private role retrieval through /state and a live reveal/hide
+screen. It queries only the authenticated player’s assignment; real role data is
+never stored in shared browser storage. Full gameplay state, timers, answers,
+voting, sabotage and public results remain planned Phase 2 endpoints. The database schema is foundation, not evidence
 that those endpoints or the resolution engine already exist.

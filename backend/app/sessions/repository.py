@@ -97,6 +97,10 @@ class SessionTransaction(Protocol):
         """Return private player-ID -> role assignments for server-side use only."""
         ...
 
+    def get_player_role(self, session_id: str, player_id: str) -> Role | None:
+        """Read only this member's assignment after holding the session row lock."""
+        ...
+
     def start_game(self, session_id: str, assignments: Mapping[str, Role]) -> None:
         """Persist four roles + SABOTAGE/round 1/lifecycle status in this transaction.
 

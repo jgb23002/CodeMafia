@@ -4,14 +4,21 @@ import logging
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from starlette.exceptions import HTTPException
 
 from backend.app.errors import error_response
 
-from .schemas import Lobby, PlayerInput, Registration, StartedGame, StartInput
+from .schemas import (
+    Lobby,
+    PlayerInput,
+    PrivateState,
+    Registration,
+    StartedGame,
+    StartInput,
+)
 from .service import SessionError, SessionService
 
 logger = logging.getLogger(__name__)
@@ -85,8 +92,9 @@ def create_session_router(
         code: str,
         body: PlayerInput,
         service: Annotated[SessionService, Depends(service_dependency)],
+        authorization: Annotated[str | None, Header()] = None,
     ):
-        return service.join(code, body.display_name)
+        return service.join(code, body.display_name, authorization)
 
     @router.get("/{code}", response_model=Lobby)
     def get_room(
@@ -104,5 +112,16 @@ def create_session_router(
         authorization: Annotated[str | None, Header()] = None,
     ):
         return service.start(code, authorization)
+
+    @router.get("/{code}/state", response_model=PrivateState)
+    def private_state(
+        code: str,
+        response: Response,
+        service: Annotated[SessionService, Depends(service_dependency)],
+        authorization: Annotated[str | None, Header()] = None,
+    ):
+        response.headers["Vary"] = "Authorization"
+        response.headers["Pragma"] = "no-cache"
+        return service.private_state(code, authorization)
 
     return router

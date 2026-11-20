@@ -37,7 +37,7 @@ The API refuses startup with missing migrations; it never auto-migrates per work
 
 - [x] Versioned schema applies to a new disposable PostgreSQL database.
 - [x] Ten deterministic challenge definitions seed repeatably.
-- [x] Application starts with the real adapter and mounts the four session routes.
+- [x] Application starts with the real adapter and mounts the session routes; Week 12 adds caller-private /state.
 - [x] SQL /health, configured CORS, global errors and body limits are tested.
 - [x] Real database tests cover distinct-process joins and durable result read/write.
 - [x] Four-player browser and backend/database restart evidence recorded in PHASE1_STATUS.md.

@@ -1,6 +1,6 @@
 import { ApiError } from './errors';
-import { MAX_PLAYERS } from './types';
-import type { ApiErrorCode, ChallengeBoard, ChallengeStatus, ChallengeType, GameApi, GamePhase, JoinResult, Player, Room, RoomStatus, Winner } from './types';
+import { MAX_PLAYERS, ROLES } from './types';
+import type { ApiErrorCode, ChallengeBoard, ChallengeStatus, ChallengeType, GameApi, GamePhase, JoinResult, Player, Role, Room, RoomStatus, Winner } from './types';
 import { GENERATED_CODE_ALPHABET, ROOM_CODE_LENGTH } from '../lib/validation';
 
 /*
@@ -93,6 +93,8 @@ interface MockRoom {
   players: MockPlayer[];
   expiresAt: string | null;
   game?: MockGame;
+  /** Demo data only. This client-side mock is not a security boundary. */
+  demoRoles?: Record<string, Role>;
 }
 
 type MockState = Record<string, MockRoom>;
@@ -348,10 +350,14 @@ export function createMockApi(options: MockApiOptions = {}): GameApi {
       return result;
     },
 
-    async joinRoom(code, name) {
+    async joinRoom(code, name, token) {
       await delay();
       return transact((state) => {
         const displayName = checkName(name);
+        if (token !== undefined) {
+          authorize(state, code, token);
+          fail('ALREADY_JOINED');
+        }
         checkCodeFormat(code);
         const room = state[code];
         if (!room) fail('ROOM_NOT_FOUND');
@@ -366,6 +372,17 @@ export function createMockApi(options: MockApiOptions = {}): GameApi {
     async getRoom(code, token) {
       await delay();
       return transact((state) => toRoom(authorize(state, code, token).room));
+    },
+
+    async getPrivateState(code, token) {
+      await delay();
+      return transact((state) => {
+        const { room, player } = authorize(state, code, token);
+        const waiting = room.status === 'waiting';
+        const role = waiting ? null : room.demoRoles?.[player.id];
+        if (!waiting && !role) fail('ROLE_UNAVAILABLE');
+        return { roomCode: code, phase: waiting ? 'WAITING' : 'SABOTAGE', round: waiting ? 0 : 1, myPlayerId: player.id, myRole: role ?? null };
+      });
     },
 
     async leaveRoom(code, token) {
@@ -392,6 +409,12 @@ export function createMockApi(options: MockApiOptions = {}): GameApi {
         if (room.status !== 'waiting') fail('GAME_ALREADY_STARTED');
         if (room.hostId !== player.id) fail('HOST_ONLY');
         if (room.players.length !== MAX_PLAYERS) fail('FOUR_PLAYERS_REQUIRED');
+        const roles: Role[] = [...ROLES];
+        for (let index = roles.length - 1; index > 0; index--) {
+          const swap = Math.floor(Math.random() * (index + 1));
+          [roles[index], roles[swap]] = [roles[swap]!, roles[index]!];
+        }
+        room.demoRoles = Object.fromEntries(room.players.map((member, index) => [member.id, roles[index]!]));
         room.status = 'in_progress';
         return { roomCode: room.code, status: room.status };
       });

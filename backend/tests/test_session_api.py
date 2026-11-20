@@ -427,4 +427,5 @@ def test_session_router_exposes_only_session_routes(client):
         "/api/sessions/{code}/join",
         "/api/sessions/{code}",
         "/api/sessions/{code}/start",
+        "/api/sessions/{code}/state",
     }
