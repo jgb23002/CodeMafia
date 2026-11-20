@@ -420,11 +420,12 @@ def test_invalid_body_encoding_is_sanitized(client):
     assert_error(response, 400, "HTTP_ERROR")
 
 
-def test_planned_gameplay_routes_are_absent(client):
+def test_session_router_exposes_only_session_routes(client):
     schema = client.get("/openapi.json").json()
     assert set(schema["paths"]) == {
         "/api/sessions",
         "/api/sessions/{code}/join",
         "/api/sessions/{code}",
         "/api/sessions/{code}/start",
+        "/api/sessions/{code}/state",
     }

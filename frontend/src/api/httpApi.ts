@@ -1,5 +1,5 @@
 import { ApiError, toApiError, toErrorCode } from './errors';
-import { MAX_PLAYERS } from './types';
+import { MAX_PLAYERS, PHASES, ROLES } from './types';
 import type {
   AnswerResult,
   ApiErrorBody,
@@ -9,6 +9,9 @@ import type {
   GameApi,
   GamePhase,
   JoinResult,
+  Phase,
+  PrivateState,
+  Role,
   Room,
   RoomStatus,
   StartResult,
@@ -16,7 +19,7 @@ import type {
 } from './types';
 
 /*
- * Fetch client for Jiya's session contract (API.md, IMPLEMENTED COMPONENT routes).
+ * Fetch client for Jiya's session and caller-private state contracts (API.md).
  * Wire format is snake_case; everything returned to the UI is camelCase.
  * Tokens travel only in the Authorization header and are never logged.
  */
@@ -79,6 +82,25 @@ interface AnswerResultWire {
   seconds_remaining: number | null;
   phase: GamePhase;
   winner: Winner | null;
+}
+
+interface PrivateStateWire {
+  room_code: string;
+  phase: Phase;
+  round: number;
+  my_player_id: string;
+  my_role: Role | null;
+}
+
+function toPrivateState(w: PrivateStateWire, code: string): PrivateState {
+  const waiting = w.phase === 'WAITING';
+  if (
+    w.room_code !== code || !PHASES.includes(w.phase) ||
+    typeof w.my_player_id !== 'string' || !w.my_player_id ||
+    !Number.isInteger(w.round) ||
+    (waiting ? w.my_role !== null || w.round !== 0 : !ROLES.includes(w.my_role as Role) || w.round < 1 || w.round > 5)
+  ) throw new ApiError('UNKNOWN');
+  return { roomCode: w.room_code, phase: w.phase, round: w.round, myPlayerId: w.my_player_id, myRole: w.my_role };
 }
 
 // ---- Mapping ----
@@ -193,13 +215,16 @@ export function createHttpApi(baseUrl: string, fetchImpl: typeof fetch = fetch):
     async createRoom(name) {
       return toJoinResult(await request<RegistrationWire>('', { method: 'POST', body: { display_name: name } }));
     },
-    async joinRoom(code, name) {
+    async joinRoom(code, name, token) {
       return toJoinResult(
-        await request<RegistrationWire>(`${seg(code)}/join`, { method: 'POST', body: { display_name: name } }),
+        await request<RegistrationWire>(`${seg(code)}/join`, { method: 'POST', body: { display_name: name }, token }),
       );
     },
     async getRoom(code, token) {
       return toRoom(await request<LobbyWire>(seg(code), { method: 'GET', token }));
+    },
+    async getPrivateState(code, token) {
+      return toPrivateState(await request<PrivateStateWire>(`${seg(code)}/state`, { method: 'GET', token }), code);
     },
     async leaveRoom() {
       // No leave endpoint in the backend yet; the caller clears this tab's seat locally.

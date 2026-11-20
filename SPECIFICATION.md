@@ -9,8 +9,9 @@ Four private browser clients play a social-deduction game with coding and escape
 puzzles. Phase 1 implements PostgreSQL-backed create/join/lobby/start, frontend
 mock/live adapters and waiting UI, ten deterministic seeded challenges, durable
 match storage, migration tooling, CI and deployment/setup documentation.
-Role/challenge/vote/result screens are placeholders. The gameplay engine and its
-planned endpoints are Phase 2. Optional AI puzzles, hints, chat and extra roles
+Week 12 on `jiya` implements the private role screen and authenticated `/state`
+role slice. Challenge/vote/result screens and the gameplay engine/actions remain
+later Phase 2 work. Optional AI puzzles, hints, chat and extra roles
 are outside MVP scope. See [API.md](API.md) and [DECISIONS.md](docs/DECISIONS.md).
 
 The decision document specifies complete candidate policies, including timings,
@@ -24,13 +25,15 @@ is four identities, including host. Only waiting rooms accept joins. Full,
 unknown and started rooms reject registration. Names are labels, not credentials.
 Independent bearer tokens authenticate players; persist only SHA-256 digests.
 A room code is never authority to read private state or act for another player.
+Retained-token resume reads the existing identity; authenticated duplicate join
+attempts return ALREADY_JOINED. Anonymous matching names remain separate identities.
 
 The host starts only once with exactly four active players. The server randomly
 assigns exactly one MAFIA, DETECTIVE, HACKER and CIVILIAN, and atomically commits
 four assignments plus SABOTAGE/round 1. Host is independent of role and can be
 Mafia. The three non-Mafia roles have identical MVP powers. Lobby responses
 never contain roles, tokens or answers. Start returns only the caller's role;
-non-host private role retrieval belongs to the planned `/state` endpoint.
+every member retrieves only their own role from the implemented `/state` endpoint.
 
 Creation, membership and start use database transactions. Join/start serialize
 on the same session row; failures cannot leave partial hosts, players or roles.

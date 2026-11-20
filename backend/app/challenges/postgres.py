@@ -6,6 +6,7 @@ from datetime import datetime
 import psycopg
 
 from backend.app.database import Database
+from backend.app.matches import Winner, WinReason
 from backend.app.sessions.postgres import PostgresTransaction
 from backend.app.sessions.repository import RepositoryError, StateConflict
 
@@ -138,6 +139,12 @@ class PostgresChallengeTransaction(PostgresTransaction):
             raise StateConflict()
         self.connection.execute(
             """INSERT INTO results (session_id, winner, reason, solved_count, rounds_played)
-               VALUES (%s, 'NON_MAFIA', 'EIGHT_CHALLENGES_SOLVED', %s, %s)""",
-            (session_id, solved_count, rounds_played),
+               VALUES (%s, %s, %s, %s, %s)""",
+            (
+                session_id,
+                Winner.NON_MAFIA.value,
+                WinReason.ESCAPED.value,
+                solved_count,
+                rounds_played,
+            ),
         )

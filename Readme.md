@@ -5,7 +5,9 @@ Mafia, coding challenges, and escape-room puzzles.
 
 Phase 1 is consolidated on `jiya`, including Priyanshi's frontend and Michael's
 original CI commit. React/TypeScript + FastAPI + PostgreSQL now support a real
-create/join/four-player/start flow. Gameplay screens remain Phase 2 placeholders.
+create/join/four-player/start flow. Week 12 on `jiya` adds caller-private role
+retrieval, reveal/hide screens and credential-preserving resume. Challenge, vote
+and result screens remain later gameplay work.
 The four-person rule approval and PR review are separate human acceptance gates.
 
 ## Local setup
@@ -38,13 +40,14 @@ In a second terminal:
 cd frontend
 npm ci
 cp .env.example .env
-# Set VITE_USE_MOCK_API=false and VITE_API_URL=http://localhost:8000 in frontend/.env.
+# The example defaults to the real API at http://localhost:8000.
 npm run dev
 ```
 
 Open http://localhost:5173 in four independent browser contexts, create a room,
-join three players, and start as host. `VITE_USE_MOCK_API=true` instead runs the
-original standalone mock, including expired/full-room demo codes. Real Phase 1
+join three players, start as host, and reveal each player’s own role. `VITE_USE_MOCK_API=true` instead runs the
+standalone demo mock, including expired/full-room demo codes. Mock roles and
+credentials are client-visible demo data; use the real API for role privacy. Real Phase 1
 rooms do not expire automatically. A seat is retained in sessionStorage on
 refresh; closing the tab loses it. There is no real leave/reconnect endpoint.
 
@@ -86,6 +89,7 @@ CI runs backend/PostgreSQL tests, frontend unit/build checks, and browser integr
 - [Architecture](docs/ARCHITECTURE.md), [session integration](docs/SESSION_INTEGRATION.md)
 - [Deployment checklist and blockers](docs/DEPLOYMENT.md)
 - [Phase 1 acceptance and verification](docs/PHASE1_STATUS.md)
+- [Week 12 roles/UI/tests checklist](docs/WEEK12_STATUS.md)
 - [Contribution/review workflow](CONTRIBUTING.md), [weekly checklist](docs/INTEGRATION_CHECKLIST.md)
 
 Team: Jiya Gorasiya, Priyanshi Sitlani, Gabriella Luciani, Michael Garcia.

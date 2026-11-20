@@ -115,6 +115,11 @@ class FakeTransaction:
         self._require_lock(session_id)
         return dict(self.repo.roles.get(session_id, {}))
 
+    def get_player_role(self, session_id, player_id):
+        self._require_lock(session_id)
+        self.repo.fail("read_role")
+        return self.repo.roles.get(session_id, {}).get(player_id)
+
     def start_game(self, session_id: str, assignments: Mapping[str, Role]):
         self._require_lock(session_id, exclusive=True)
         room = next(r for r in self.repo.rooms.values() if r.session_id == session_id)
