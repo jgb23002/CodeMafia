@@ -11,6 +11,7 @@ fake. Run the documented commands in [Readme.md](../Readme.md).
 - POST /api/sessions/{code}/join — registration while waiting and below capacity.
 - GET /api/sessions/{code} — authenticated safe lobby, no roles or credentials.
 - POST /api/sessions/{code}/start — host only, exactly four active players, one start.
+- GET /api/sessions/{code}/state — caller ID/role only, null role before start.
 - GET /health — SQL readiness and expected schema version.
 
 The router already includes /api/sessions; do not mount another /api prefix.
@@ -29,7 +30,9 @@ errors. Failed transactions fully roll back before retries.
 
 There is no automatic replay after an uncertain commit outcome. Registration
 POSTs are non-idempotent; the client never automatically re-registers on refresh.
-A lost tab cannot transfer its token to a new seat. No leave/expiry endpoint is
+A lost tab cannot recover a token by name or transfer another player’s seat.
+Authenticated duplicate joins return 409 ALREADY_JOINED; direct refresh and
+Resume my room reuse the retained credential without posting /join. No leave/expiry endpoint is
 implemented. These limitations are reflected in the frontend guide and rules.
 
 ## Verified gates
@@ -40,12 +43,13 @@ capacity, concurrent starts, join/start races, schema constraints, rollback,
 deferred-commit failure and persistent match storage. Application tests mount
 the real router and check health, errors, body bounds, CORS and safe OpenAPI.
 The browser test creates four isolated players through the real HTTP adapter,
-refreshes one seat, rejects a fifth player and moves all four to the role placeholder.
+refreshes one seat, rejects a fifth player and moves all four to their private reveal/hide screens.
 
 ## Boundaries for Phase 2
 
-The start response reveals only the host's own role. Non-host private role
-retrieval through /state, gameplay timers, answer/vote/sabotage APIs, public
-results and the win-resolution engine remain planned. Role/challenge/vote/result
-screens deliberately remain placeholders for the later phase. Completed match
+The start response reveals only the host's own role; every member now retrieves
+their own role from /state using an individual token and a player-scoped SELECT.
+The response stays caller-private even at GAME_OVER. Gameplay timers, action APIs,
+public results and the win-resolution engine remain planned. Challenge/vote/result
+screens remain placeholders for the later phase. Completed match
 storage can be tested internally without exposing a client winner-setting API.

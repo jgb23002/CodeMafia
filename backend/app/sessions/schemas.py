@@ -61,3 +61,13 @@ class StartedGame(BaseModel):
     round: Literal[1]
     player_count: Literal[4]
     my_role: Role
+
+
+class PrivateState(BaseModel):
+    """Caller-scoped allowlist; never serialize the session's assignment map."""
+
+    room_code: str
+    phase: Phase
+    round: int
+    my_player_id: str
+    my_role: Role | None

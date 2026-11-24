@@ -139,3 +139,20 @@ def test_eight_solves_record_team_escape(pg_client, pg_database, started):
         room = connection.execute("SELECT phase, status FROM sessions").fetchone()
     assert result == {"winner": "NON_MAFIA", "solved_count": 8, "rounds_played": 4}
     assert room == {"phase": "GAME_OVER", "status": "finished"}
+
+
+def test_team_escape_is_readable_through_results_api(pg_client, started):
+    """The escape result written by the challenge engine must satisfy the results API."""
+    code, players, set_round = started
+    for index, challenge_id in enumerate(ANSWERS):
+        set_round(index // 2 + 1)
+        response = answer(
+            pg_client, code, players[index % 4], challenge_id, ANSWERS[challenge_id]
+        )
+        assert response.status_code == 200, response.text
+    results = pg_client.get(f"/api/sessions/{code}/results", headers=bearer(players[1]))
+    assert results.status_code == 200, results.text
+    body = results.json()
+    assert body["winner"] == "NON_MAFIA" and body["reason"] == "ESCAPED"
+    assert body["solved_count"] == 8 and body["final_round"] == 4
+    assert len(body["players"]) == 4

@@ -133,6 +133,13 @@ class PostgresTransaction:
             (session_id, player_id, role.value),
         )
 
+    def get_player_role(self, session_id: str, player_id: str) -> Role | None:
+        row = self.connection.execute(
+            "SELECT role FROM role_assignments WHERE session_id = %s AND player_id = %s",
+            (session_id, player_id),
+        ).fetchone()
+        return Role(row["role"]) if row else None
+
     def start_game(self, session_id: str, assignments: Mapping[str, Role]) -> None:
         if session_id not in self.exclusive_locks:
             raise RepositoryError()

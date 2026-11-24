@@ -4,13 +4,20 @@ import json
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from datetime import timedelta
 from threading import Event
 from uuid import uuid4
 
 import pytest
 
 from backend.app.database import Database
-from backend.app.matches import MatchRepository, MatchResult
+from backend.app.matches import (
+    MatchRepository,
+    MatchResult,
+    StoredMatchResult,
+    Winner,
+    WinReason,
+)
 from backend.app.sessions import SessionService
 from backend.app.sessions.postgres import PostgresRepository, PostgresTransaction
 from backend.app.sessions.repository import (
@@ -240,10 +247,26 @@ def test_result_write_read_and_new_connection_persistence(
 ):
     host, _ = pg_full_room
     pg_service.start(host.room_code, auth(host))
-    result = MatchResult(host.session_id, "NON_MAFIA", "eight_challenges", 8, 1)
-    MatchRepository(pg_database).record_result(result)
+    result = MatchResult(host.session_id, Winner.NON_MAFIA, WinReason.ESCAPED, 8, 1)
+    repository = MatchRepository(pg_database)
+    repository.record_result(result)
+    stored = repository.read_result(host.session_id)
+    assert isinstance(stored, StoredMatchResult)
+    assert stored.session_id == result.session_id
+    assert stored.winner is Winner.NON_MAFIA
+    assert stored.reason is WinReason.ESCAPED
+    assert stored.solved_count == result.solved_count
+    assert stored.rounds_played == result.rounds_played
+    assert stored.completed_at.tzinfo is not None
+    assert stored.completed_at.utcoffset() == timedelta(0)
+    with pg_database.connect() as connection:
+        persisted_at = connection.execute(
+            "SELECT completed_at FROM results WHERE session_id = %s",
+            (host.session_id,),
+        ).fetchone()["completed_at"]
+    assert stored.completed_at == persisted_at
     restarted = MatchRepository(Database(pg_database.url, pg_database.schema))
-    assert restarted.read_result(host.session_id) == result
+    assert restarted.read_result(host.session_id) == stored
     assert pg_service.lobby(host.room_code, auth(host)).phase == Phase.GAME_OVER
     with pytest.raises(StateConflict):
         restarted.record_result(result)
@@ -260,3 +283,14 @@ def test_invalid_result_rolls_back_and_leaves_game_active(
         )
     assert MatchRepository(pg_database).read_result(host.session_id) is None
     assert pg_service.lobby(host.room_code, auth(host)).phase == Phase.SABOTAGE
+    with pg_database.connect() as connection:
+        session = connection.execute(
+            "SELECT status, completed_at FROM sessions WHERE id = %s",
+            (host.session_id,),
+        ).fetchone()
+        result_count = connection.execute(
+            "SELECT count(*) AS count FROM results WHERE session_id = %s",
+            (host.session_id,),
+        ).fetchone()["count"]
+    assert session == {"status": "active", "completed_at": None}
+    assert result_count == 0

@@ -2,10 +2,10 @@
 
 ## Status, conventions, and types
 
-Phase 1 runs the four **IMPLEMENTED** session endpoints below in
+The four Phase 1 session endpoints and the Week 12 caller-private `/state` endpoint run in
 `backend.app.main:create_app`, backed by PostgreSQL. `GET /health` returns
 `{"status":"ok","database":"ok","schema_version":1}` after an actual SQL query,
-or a safe 503 error when the database/schema is unavailable. Other endpoints
+or a safe 503 error when the database/schema is unavailable. Gameplay action endpoints
 remain **PLANNED** for later gameplay phases. Complete candidate policies are in
 [DECISIONS.md](docs/DECISIONS.md); agreement from all four members is pending.
 
@@ -54,10 +54,10 @@ raw tokens, private roles, and answer keys must not appear in errors.
 | 401 | UNAUTHORIZED | Missing, malformed, unknown, or tampered player token |
 | 403 | NOT_ROOM_MEMBER, HOST_ONLY | Cross-room access or non-host start |
 | 404 | ROOM_NOT_FOUND | Validly formatted room code not found |
-| 409 | ROOM_FULL, GAME_ALREADY_STARTED, FOUR_PLAYERS_REQUIRED, INACTIVE_PLAYERS, ROLES_ALREADY_ASSIGNED, STATE_CONFLICT | Capacity or lifecycle conflict |
+| 409 | ROOM_FULL, ALREADY_JOINED, GAME_ALREADY_STARTED, FOUR_PLAYERS_REQUIRED, INACTIVE_PLAYERS, ROLES_ALREADY_ASSIGNED, STATE_CONFLICT | Capacity or lifecycle conflict |
 | 413 | REQUEST_TOO_LARGE | Body exceeds the configured limit, including streamed bodies |
 | 422 | INVALID_REQUEST, INVALID_ROOM_CODE | Invalid body or code format |
-| 500 | ROOM_CREATION_FAILED, IDENTITY_CREATION_FAILED, PERSISTENCE_ERROR, INTERNAL_ERROR | Retry budget exhausted, persistence failure, or unexpected failure |
+| 500 | ROOM_CREATION_FAILED, IDENTITY_CREATION_FAILED, PERSISTENCE_ERROR, ROLE_UNAVAILABLE, INTERNAL_ERROR | Retry budget exhausted, persistence failure, or unexpected failure |
 | 503 | SERVICE_UNAVAILABLE | Health query or required schema is unavailable |
 
 Planned gameplay errors use the same envelope with **PROPOSED** codes such as
@@ -166,36 +166,50 @@ Exactly four active players, WAITING, no preexisting roles, and host ownership
 are required. Securely shuffled assignments contain each role exactly once.
 Four role rows and the phase/round/status update commit together. Repeated start
 returns 409 and never reveals or reassigns roles. No other player role is sent.
-Non-host role retrieval is reserved for the planned `/state` route below.
+Every member retrieves their own role through the implemented `/state` route below.
 Errors: 401; 403 NOT_ROOM_MEMBER/HOST_ONLY; 404; 409 as listed; 422; 500.
 
-## 5. Current game state — PLANNED
+## 5. Caller-private state — IMPLEMENTED (CM-12-JI-1)
 
-`GET /api/sessions/{code}/state` — authenticated room member. 200 example:
+`GET /api/sessions/{code}/state` — requires the requesting player's bearer token.
+There is no client-selectable player ID. Query/header identity hints never replace
+the authenticated identity. The server checks room membership and queries only
+that player's assignment while holding the shared session lock.
+
+200 after start:
 
 ```json
-{
-  "room_code":"AB7K9Q","phase":"CHALLENGE","round":1,
-  "my_player_id":"22222222-2222-4222-8222-222222222222","my_role":"DETECTIVE",
-  "players":[
-    {"player_id":"22222222-2222-4222-8222-222222222222","display_name":"Jiya","is_active":true},
-    {"player_id":"44444444-4444-4444-8444-444444444444","display_name":"Priyanshi","is_active":true},
-    {"player_id":"55555555-5555-4555-8555-555555555555","display_name":"Gabriella","is_active":true},
-    {"player_id":"66666666-6666-4666-8666-666666666666","display_name":"Michael","is_active":true}
-  ],
-  "solved_count":0,"escape_target":8,
-  "challenges":[{"challenge_id":"CM01","type":"CODING","prompt":"Predict the output...","status":"OPEN"}],
-  "winner":null
-}
+{"room_code":"AB7K9Q","phase":"SABOTAGE","round":1,"my_player_id":"22222222-2222-4222-8222-222222222222","my_role":"DETECTIVE"}
 ```
 
-**PROPOSED types:** count/target/round integers; `my_role: Role|null` (null in
-WAITING); challenge type CODING|ESCAPE, status OPEN|SOLVED|CLOSED; winner as above.
-Return only the caller's role before GAME_OVER. Mafia-only budgets must go only
-to Mafia, without disclosing identity through public player fields. Never include
-answers, other players' role fields, hashes, or tokens. GAME_OVER full role reveal
-is proposed for results. Errors: 401/403/404/422/500. Michael coordinates state
-aggregation with Gabriella's challenge/progress data and Jiya's session boundary.
+The five fields above are the complete current allowlist. Role is one of MAFIA,
+DETECTIVE, HACKER, CIVILIAN. While WAITING, `round` is 0 and `my_role` is null.
+After start it is that caller's immutable assignment. GET never registers another
+player, reassigns roles, or changes capacity; refresh/resume reuse the retained
+credential. A missing assignment after start is a safe 500 ROLE_UNAVAILABLE,
+never a fallback to another player's role. Database errors use PERSISTENCE_ERROR.
+
+Never include other player IDs/assignments, credentials, hashes or answer keys.
+This endpoint stays caller-private even at GAME_OVER. It returns no-store,
+Pragma: no-cache and Vary: Authorization (plus Origin when CORS requires it).
+Errors: 401 missing/malformed/unknown credential; 403 NOT_ROOM_MEMBER; 404
+ROOM_NOT_FOUND; 422 invalid room code; 500 unavailable role/persistence/internal.
+
+Gameplay progress, challenges, effects, timers and public result/history reads
+remain planned; this role slice does not claim the later full game-state API.
+
+### Rejoin and duplicate join policy (CM-12-JI-3)
+
+Resume means reading the existing seat with its original bearer token, including
+a direct refresh of the role URL. The UI offers Resume my room and routes a join
+for the same retained room back to that seat without posting a registration.
+If POST `/join` includes an existing same-room bearer credential, it returns
+409 ALREADY_JOINED before changing membership, even after start. Invalid provided
+credentials return 401; another room's credential returns 403. They never fall
+back to anonymous registration. Anonymous registration still creates a new
+identity, subject to capacity/phase checks. Display names remain non-unique;
+matching a name cannot authenticate a returning player or recover their role.
+Losing the tab's token is not account recovery and grants no private access.
 
 ## 6. Challenges and answers — IMPLEMENTED COMPONENT (Gabriella, Week 12)
 

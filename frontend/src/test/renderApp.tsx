@@ -39,6 +39,7 @@ export function fakeApi(overrides: Partial<GameApi> = {}): GameApi {
     createRoom: vi.fn(overrides.createRoom ?? unexpected),
     joinRoom: vi.fn(overrides.joinRoom ?? unexpected),
     getRoom: vi.fn(overrides.getRoom ?? unexpected),
+    getPrivateState: vi.fn(overrides.getPrivateState ?? unexpected),
     leaveRoom: vi.fn(overrides.leaveRoom ?? unexpected),
     startGame: vi.fn(overrides.startGame ?? unexpected),
     getChallenges: vi.fn(overrides.getChallenges ?? unexpected),

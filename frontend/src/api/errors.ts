@@ -6,6 +6,7 @@ export const ERROR_MESSAGES: Record<ApiErrorCode, string> = {
   ROOM_NOT_FOUND: 'We couldn’t find that room. Check the code with your host, or create a new room.',
   ROOM_EXPIRED: 'That room has expired. Ask your host to create a new one.',
   ROOM_FULL: 'That room already has 4 players. Ask the host for a different room, or create your own.',
+  ALREADY_JOINED: 'You already have a seat in this room. Resume your room to continue.',
   GAME_ALREADY_STARTED: 'That game has already started. Join a different room, or create a new one.',
   INVALID_REQUEST: 'Something in the form isn’t valid. Check your name and try again.',
   HOST_ONLY: 'Only the host can start the game. Wait for them to start it.',
@@ -28,6 +29,7 @@ export const ERROR_MESSAGES: Record<ApiErrorCode, string> = {
   TIME_EXPIRED: 'Time’s up for this round’s challenges.',
   ATTEMPT_LIMIT: 'You’ve used all 3 tries on that challenge. A teammate can still try.',
   INVALID_ANSWER: 'Type an answer (up to 2000 characters) and try again.',
+  ROLE_UNAVAILABLE: 'We couldn’t retrieve your role. Keep your seat and try again.',
   NETWORK_ERROR: 'Can’t reach the game server. Check your connection and try again.',
   UNKNOWN: 'Something unexpected happened. Try again.',
 };
